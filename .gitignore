@@ -1,5 +1,4 @@
 node_modules
 .env
 package-lock.json
-cookies.json
 .DS_Store
