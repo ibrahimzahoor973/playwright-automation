@@ -19,7 +19,7 @@ const {
   let browser;
   let context;
   try {
-    //launch the browser in non-headless mode
+    // launch the browser in non-headless mode
     console.log({
       userEmail,
       proxySettings,
@@ -31,6 +31,7 @@ const {
       userName,
       password
     } = JSON.parse(proxySettings);
+
     const browserOpts = {
       headless: true,
       proxy: {
@@ -70,7 +71,7 @@ const {
     const page = await context.newPage();
   
     // Go to the collections page
-    await page.goto('https://galleries.pixieset.com/collections');
+    await page.goto('https://galleries.pixieset.com/collections', { waitUntil: 'networkidle' });
   
   
     // After logging in, save cookies
@@ -127,7 +128,8 @@ const {
   } catch (err) {
     console.log('An Unexpected Error occurred', err);
   } finally {
-    if (context) await context.close();
+    if (browser) await browser.close();
+    return;
   }
 })();
 

@@ -1,7 +1,8 @@
 import GallerySet from '../models/gallery-set.js';
 
 const SaveGallerySets = async ({
-  gallerySets
+  gallerySets,
+  galleryName
 }) => {
   const writeData = gallerySets.map((set) => {
     const {
@@ -19,6 +20,7 @@ const SaveGallerySets = async ({
         update: {
           $set: {
             collectionId,
+            galleryName,
             numberOfPhotos,
             name
           }

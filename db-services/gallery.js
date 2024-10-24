@@ -1,7 +1,8 @@
 import Gallery from '../models/gallery.js';
 
 const SaveGalleries = async ({
-  galleries
+  galleries,
+  pageNumber
 }) => {
   const writeData = galleries.map((gallery) => {
     const {
@@ -19,6 +20,7 @@ const SaveGalleries = async ({
         },
         update: {
           $set : {
+            pageNumber,
             name,
             numberOfPhotos,
             eventDate,
@@ -37,9 +39,10 @@ const SaveGalleries = async ({
 
 const GetGalleries = async ({
   filterParams,
-  limit
+  limit,
+  sort
 }) => {
-  const galleries = await Gallery.find(filterParams).limit(limit);
+  const galleries = await Gallery.find(filterParams).limit(limit).sort(sort);
 
   return galleries;
 };

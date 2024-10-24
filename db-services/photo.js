@@ -1,7 +1,8 @@
 import Photo from '../models/photo.js';
 
 const SaveGalleryPhotos = async ({
-  photos
+  photos,
+  setName
 }) => {
   const writeData = photos.map((photo) => {
     const {
@@ -29,6 +30,7 @@ const SaveGalleryPhotos = async ({
         update: {
           $set : {
             galleryName,
+            setName,
             photoId,
             photoUrl,
             xLarge,

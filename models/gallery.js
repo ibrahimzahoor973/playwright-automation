@@ -5,7 +5,10 @@ const schema = new Schema({
   name: { type: String },
   numberOfPhotos: { type: Number },
   eventDate: { type: Date },
-  eventCategory: { type: String }
+  eventCategory: { type: String },
+  clientsSynced: { type: Boolean },
+  allGalleriesSynced: { type: Boolean },
+  gallerySetsSynced: { type: Boolean }
 }, {
   timestamps: true,
   strict: false

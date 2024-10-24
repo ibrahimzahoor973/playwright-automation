@@ -19,6 +19,8 @@ const DownloadPhoto = async ({
 }) => {
   const {
     galleryName,
+    setId,
+    setName = '',
     collectionId,
     photoId
   } = photo;
@@ -33,7 +35,7 @@ const DownloadPhoto = async ({
       },
       responseType: 'stream'
     }).then((streamResponse) => {
-      const filePath = path.join(process.cwd(), 'PhotoGallery', `${galleryName}/${collectionId}/${photoId}.jpg`);
+      const filePath = path.join(process.cwd(), 'PhotoGallery', `${galleryName}_${collectionId}/${setName}_${setId}/${photoId}.jpg`);
       console.log({ filePath });
 
       // Check if the directory exists and create it if it doesn't
@@ -81,19 +83,33 @@ const DownloadPhotos = async ({
   axios.defaults.timeout = 30000;
   axios.defaults.httpsAgent = new https.Agent({ keepAlive: true });
 
-  let galleries;
+  let gallery;
   do {
-    galleries = await GetGalleries({ filterParams: { isDownloaded: { $exists: false } }, limit: 10 });
+    let errorInGallery = false;
+    [gallery] = await GetGalleries({
+      filterParams: {
+        $or: [
+          { isLocked: { $exists: false } },
+          { isLocked: false }
+        ],
+        isDownloaded: { $exists: false }
+      }, limit: 1
+    });
     let photosData;
     try {
-      console.log({ galleries: galleries.length });
+      console.log({ gallery });
 
-      for (let i = 0; i < galleries.length; i += 1) {
-        const gallery = galleries[i];
-        const gallerySets = await GetGallerySets({ filterParams: { collectionId: gallery.collectionId, isDownloaded: { $exists: false } }});
+      if (gallery) {
+        await UpdateGallery({
+          filterParams: { collectionId: gallery.collectionId },
+          updateParams: { isLocked: true }
+        });
+
+        const gallerySets = await GetGallerySets({ filterParams: { collectionId: gallery.collectionId, isDownloaded: { $exists: false } } });
         console.log({ gallerySets: gallerySets.length });
 
         for (let j = 0; j < gallerySets.length; j += 1) {
+          let errorInGallerySet = false;
           const set = gallerySets[j];
           console.log('Gallery Set', j);
           photosData = await GetGalleryPhotos({
@@ -114,25 +130,36 @@ const DownloadPhotos = async ({
                 photo,
                 index: k
               });
-            await UpdateGalleryPhoto({ filterParams: { photoId: photo.photoId }, updateParams: { isDownloaded: true } });
+              await UpdateGalleryPhoto({ filterParams: { photoId: photo.photoId }, updateParams: { isDownloaded: true } });
             } catch (err) {
               console.log('Error while downloading Photo', photo.photoId);
+              errorInGallery = true;
+              errorInGallerySet = true
             }
           }
-         
+
           console.log('All photos downloaded for Set', set.setId);
 
-          await UpdateGallerySet({
-            filterParams: { setId: set.setId },
-            updateParams: { isDownloaded: true }
-          });
-          console.log('Set updated!', set.name);
+          if (!errorInGallerySet) {
+            await UpdateGallerySet({
+              filterParams: { setId: set.setId },
+              updateParams: { isDownloaded: true }
+            });
+            console.log('Set Downloaded!', set.name);
+          }
         }
 
-        await UpdateGallery({
-          filterParams: { collectionId: gallery.collectionId },
-          updateParams: { isDownloaded: true }
-        });
+        if (!errorInGallery) {
+          await UpdateGallery({
+            filterParams: { collectionId: gallery.collectionId },
+            updateParams: { isDownloaded: true }
+          });
+        } else {
+          await UpdateGallery({
+            filterParams: { collectionId: gallery.collectionId },
+            updateParams: { isLocked: false }
+          });
+        }
 
         console.log('Gallery updated!', gallery.collectionId);
 
@@ -142,7 +169,8 @@ const DownloadPhotos = async ({
       console.log('Error in Download Photos Method!', err);
       throw err;
     }
-  } while (galleries.length)
+  } while (gallery)
+    return true;
 };
 
 export default DownloadPhotos;
