@@ -2,7 +2,8 @@ import Photo from '../models/photo.js';
 
 const SaveGalleryPhotos = async ({
   photos,
-  setName
+  setName,
+  userEmail
 }) => {
   const writeData = photos.map((photo) => {
     const {
@@ -23,6 +24,7 @@ const SaveGalleryPhotos = async ({
     return {
       updateOne: {
         filter: {
+          userEmail,
           collectionId,
           setId,
           photoId

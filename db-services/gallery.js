@@ -2,7 +2,8 @@ import Gallery from '../models/gallery.js';
 
 const SaveGalleries = async ({
   galleries,
-  pageNumber
+  pageNumber,
+  userEmail
 }) => {
   const writeData = galleries.map((gallery) => {
     const {
@@ -16,6 +17,7 @@ const SaveGalleries = async ({
     return {
       updateOne: {
         filter: {
+          userEmail,
           collectionId
         },
         update: {

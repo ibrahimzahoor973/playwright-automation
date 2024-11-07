@@ -1,7 +1,8 @@
 import Client from '../models/client.js';
 
 const SaveClients = async ({
-  clients
+  clients,
+  userEmail
 }) => {
   const writeData = clients.map((client) => {
     const {
@@ -14,6 +15,7 @@ const SaveClients = async ({
     return {
       updateOne: {
         filter: {
+          userEmail,
           collectionId,
           email
         },
