@@ -4,6 +4,7 @@ const schema = new Schema({
   collectionId: { type: String },
   setId: { type: String },
   name: { type: String },
+  userEmail: { type: String },
   numberOfPhotos: { type: Number }
 }, {
   timestamps: true,

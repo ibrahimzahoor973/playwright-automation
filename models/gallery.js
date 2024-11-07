@@ -3,6 +3,7 @@ import { Schema, model } from 'mongoose';
 const schema = new Schema({
   collectionId: { type: String },
   name: { type: String },
+  userEmail: { type: String },
   numberOfPhotos: { type: Number },
   eventDate: { type: Date },
   eventCategory: { type: String },

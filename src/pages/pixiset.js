@@ -1,137 +1,111 @@
 import 'dotenv/config';
-import fs from 'fs';
-import { chromium } from 'playwright-extra';
-import stealth from 'puppeteer-extra-plugin-stealth';
-import GetClients, { sleep, getCookies } from '../helpers.js';
+import { connect } from 'puppeteer-real-browser';
+
+import GetClients, { sleep, getCookies, parseProxyUrl } from '../helpers.js';
 import DownloadPhotos from '../download-photos.js';
 
-chromium.use(stealth());
 
 const {
-  EMAIL: userEmail,
-  PASSWORD: userPassword,
+  userEmail,
+  userPassword,
   PROXY_SETTINGS: proxySettings,
-  downloadPhotos
+  downloadPhotos,
+  proxy
 } = process.env;
 
+console.log({
+  userEmail,
+  userPassword
+});
 
 (async () => {
-  let browser;
-  let context;
-  try {
-    // launch the browser in non-headless mode
-    console.log({
-      userEmail,
-      proxySettings,
-      downloadPhotos
-    })
-    const {
-      ip,
-      port,
-      userName,
-      password
-    } = JSON.parse(proxySettings);
+  console.log({ sessionDir: `${process.cwd()}/public/sessions/${userEmail}` })
 
-    const browserOpts = {
-      headless: true,
-      proxy: {
-        server: `https://${ip}:${port}`,
-        username: userName,
-        password,
-      },
-      args: [
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-web-security',
-        '--disable-setuid-sandbox',
-        '--disable-gpu',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--start-maximized',
-        `--proxy-server=${ip}:${port}`
-      ]
-    };
-    browser = await chromium.launch(browserOpts);
+  const proxy = parseProxyUrl(proxy);
 
-    const context = await browser.newContext();
+  console.log(proxy)
 
-    //create a new page
-    // const page = await context.newPage();
+  connect({
+    userDataDir: `${process.cwd()}/public/sessions/${userEmail}`,
+    headless: false,
+    args: [
+      // '--headless=new',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-web-security',
+      '--disable-gpu',
+      '--disable-features=IsolateOrigins,site-per-process'
+    ],
 
-    // go to the pixieset login page
-    // await page.goto('https://accounts.pixieset.com/login/', { waitUntil: 'networkidle' });
+    customConfig: {},
 
-    await sleep(10);
+    skipTarget: [],
 
-    // Load cookies from the JSON file
-    const sessionCookies = JSON.parse(fs.readFileSync('cookies.json', 'utf8'));
+    fingerprint: true,
 
-    // Set the cookies in the context
-    await context.addCookies(sessionCookies);
+    turnstile: true,
+
+    connectOption: {},
+
+    proxy
+
+  })
+    .then(async (response) => {
+      const { browser, page } = response;
+
+      await page.setViewport({ width: 1920, height: 1080 });
+
+      await page.goto('https://galleries.pixieset.com/collections', { timeout: 60000 });
+      await sleep(30);
+
+      await page.reload();
+
+      if (page.url().includes('/login')) {
+        const emailSelector = await page.$('#UserLogin_username', { visible: true });
+
+        const passwordSelector = await page.$('#UserLogin_password', { visible: true });
   
-    const page = await context.newPage();
+        console.log({
+          emailSelector,
+          passwordSelector
+        });
   
-    // Go to the collections page
-    await page.goto('https://galleries.pixieset.com/collections', { waitUntil: 'networkidle' });
+        await emailSelector.type(userEmail, { delay: 300 });
+        await sleep(10);
+        await passwordSelector.type(userPassword, { delay: 400 });
+        await sleep(10);
   
+        const loginButton = await page.$('#login-button');
+        console.log({ loginButton });
   
-    // After logging in, save cookies
-    // const cookies = await context.cookies();
-    // await fs.writeFile('cookies.json', JSON.stringify(cookies, null, 2));
+        loginButton.click();
   
-    // Save local storage
-    
-    // console.log('Cookies and local storage saved.');
-
-    // console.log('Logged In!');
+        await sleep(10);
+        await page.goto('https://galleries.pixieset.com/collections', { timeout: 60000 });
+      }
 
 
-    //select email & password selectors from the page
-    // const email = await page.waitForSelector('#UserLogin_username');
-    // const passwordSelector = await page.waitForSelector('#UserLogin_password');
+      await sleep(10);
 
-    // // enter email & password
-    // await email.type(userEmail, { delay: 300 });
-
-    // await sleep(10);
-
-    // await passwordSelector.type(userPassword, { delay: 400 });
-
-    // // click on login button
-    // const loginButton = await page.waitForSelector('#login-button');
-    // // await loginButton.hover();
-    // // await page.mouse.move(10, 10);
-    // // await page.waitForTimeout(1000 + Math.floor(Math.random() * 2000));
-
-    // await loginButton.click();
-
-    await sleep(20);
-
-    console.log('Logged In!');
-
-    // go to collections page
-    // await page.goto('https://galleries.pixieset.com/collections');
-
-    // get cookies to authenticate requests
-    const cookies = await context.cookies();
+      const cookies = await page.cookies();
 
     //filter cookies
     const filteredCookies = getCookies({ cookies });
 
     // call helper method to scrape the data
     if (!downloadPhotos) {
-      await GetClients({ page, filteredCookies });
+      await GetClients({ page, filteredCookies, userEmail });
     }
     console.log('calling Download photos');
     await DownloadPhotos({
-      filteredCookies
+      filteredCookies,
+      userEmail
     });
-  } catch (err) {
-    console.log('An Unexpected Error occurred', err);
-  } finally {
-    if (browser) await browser.close();
-    return;
-  }
+
+    await browser.close();
+    })
+    .catch(async (error) => {
+      console.log(error.message);
+      await browser.close();
+    });
 })();
-
-
-

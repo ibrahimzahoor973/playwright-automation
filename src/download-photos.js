@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from '../config/axios.js';
 import https from 'https';
 import path from 'path';
 import fs from 'fs';
@@ -15,13 +15,13 @@ const retries = 3;
 const DownloadPhoto = async ({
   filteredCookies,
   photo,
-  index
+  index,
+  userEmail
 }) => {
   const {
     galleryName,
-    setId,
     setName = '',
-    collectionId,
+    name,
     photoId
   } = photo;
   console.log('in DownloadPhoto method', index, photoId);
@@ -35,7 +35,7 @@ const DownloadPhoto = async ({
       },
       responseType: 'stream'
     }).then((streamResponse) => {
-      const filePath = path.join(process.cwd(), 'PhotoGallery', `${galleryName}_${collectionId}/${setName}_${setId}/${photoId}.jpg`);
+      const filePath = path.join(process.cwd(), `PhotoGallery/${userEmail}`, `${galleryName}/${setName}/${name}.jpg`);
       console.log({ filePath });
 
       // Check if the directory exists and create it if it doesn't
@@ -66,7 +66,7 @@ const DownloadPhoto = async ({
         console.log({ delay })
         await sleep(delay);
 
-        return DownloadPhoto({ filteredCookies, photo, index, retries: retries - 1 })
+        return DownloadPhoto({ filteredCookies, photo, index, retries: retries - 1, userEmail })
       } else if (retries === 0) {
         console.error(`Max retries reached for photo ${photoId}`);
         reject({ success: false, photo });
@@ -78,7 +78,8 @@ const DownloadPhoto = async ({
 };
 
 const DownloadPhotos = async ({
-  filteredCookies
+  filteredCookies,
+  userEmail
 }) => {
   axios.defaults.timeout = 30000;
   axios.defaults.httpsAgent = new https.Agent({ keepAlive: true });
@@ -88,6 +89,7 @@ const DownloadPhotos = async ({
     let errorInGallery = false;
     [gallery] = await GetGalleries({
       filterParams: {
+        userEmail,
         $or: [
           { isLocked: { $exists: false } },
           { isLocked: false }
@@ -101,11 +103,15 @@ const DownloadPhotos = async ({
 
       if (gallery) {
         await UpdateGallery({
-          filterParams: { collectionId: gallery.collectionId },
+          filterParams: { userEmail, collectionId: gallery.collectionId },
           updateParams: { isLocked: true }
         });
 
-        const gallerySets = await GetGallerySets({ filterParams: { collectionId: gallery.collectionId, isDownloaded: { $exists: false } } });
+        const gallerySets = await GetGallerySets({ filterParams: {
+          userEmail,
+          collectionId: gallery.collectionId,
+          isDownloaded: { $exists: false }
+        } });
         console.log({ gallerySets: gallerySets.length });
 
         for (let j = 0; j < gallerySets.length; j += 1) {
@@ -114,6 +120,7 @@ const DownloadPhotos = async ({
           console.log('Gallery Set', j);
           photosData = await GetGalleryPhotos({
             filterParams: {
+              userEmail,
               collectionId: gallery.collectionId,
               setId: set.setId,
               isDownloaded: { $exists: false }
@@ -128,9 +135,14 @@ const DownloadPhotos = async ({
               await DownloadPhoto({
                 filteredCookies,
                 photo,
-                index: k
+                index: k,
+                userEmail
               });
-              await UpdateGalleryPhoto({ filterParams: { photoId: photo.photoId }, updateParams: { isDownloaded: true } });
+              await UpdateGalleryPhoto({ filterParams: {
+                userEmail,
+                photoId: photo.photoId
+              },
+              updateParams: { isDownloaded: true } });
             } catch (err) {
               console.log('Error while downloading Photo', photo.photoId);
               errorInGallery = true;
@@ -142,7 +154,10 @@ const DownloadPhotos = async ({
 
           if (!errorInGallerySet) {
             await UpdateGallerySet({
-              filterParams: { setId: set.setId },
+              filterParams: {
+                userEmail,
+                setId: set.setId
+              },
               updateParams: { isDownloaded: true }
             });
             console.log('Set Downloaded!', set.name);
@@ -151,12 +166,18 @@ const DownloadPhotos = async ({
 
         if (!errorInGallery) {
           await UpdateGallery({
-            filterParams: { collectionId: gallery.collectionId },
+            filterParams: {
+              userEmail,
+              collectionId: gallery.collectionId
+            },
             updateParams: { isDownloaded: true }
           });
         } else {
           await UpdateGallery({
-            filterParams: { collectionId: gallery.collectionId },
+            filterParams: {
+              userEmail,
+              collectionId: gallery.collectionId
+            },
             updateParams: { isLocked: false }
           });
         }

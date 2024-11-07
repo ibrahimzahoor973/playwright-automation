@@ -1,5 +1,5 @@
 import pkg from 'lodash';
-import axios from 'axios';
+import axios from '../config/axios.js';
 import fs from 'fs';
 import path from 'path';
 import { SaveGalleries, UpdateGallery, GetGalleries as GetGalleriesFromDb } from '../db-services/gallery.js';
@@ -13,6 +13,26 @@ const { isEmpty } = pkg;
 export const sleep = (secs = 1) => new Promise((resolve) => {
   setTimeout(resolve, secs * 1000);
 });
+
+
+export const parseProxyUrl = (url) => {
+  const regex = /^http:\/\/([^:]+):(\d+)@([^:]+):([^/]+)$/;
+  const match = url.match(regex);
+
+  if (match) {
+    const [, host, port, username, password] = match;
+    return {
+      proxy: {
+        host,
+        port,
+        username,
+        password
+      }
+    };
+  } else {
+    throw new Error('Invalid proxy URL format');
+  }
+}
 
 export const getCookies = ({ cookies }) => {
   let cookieMerge = '';
@@ -41,7 +61,7 @@ const getGalleryCollections = async ({
       url: `https://galleries.pixieset.com/api/v1/collections/${collection.id}/edit`,
       method: 'GET',
       headers: {
-        'content-type': 'application/json',
+        'content-type': 'application/json, text/plain, */*',
         cookie: filteredCookies
       }
     });
@@ -52,6 +72,7 @@ const getGalleryCollections = async ({
       eventDate: collection.event_date,
       galleryName: collection.name,
       numberOfPhotos: collection.photo_count,
+      coverPhoto: `${collection.coverPhoto ? 'https:' + collection.coverPhoto : ''}`,
       categories: `${tagResponse.data?.distinctTags?.join(',') || ''}`
     });
   }
@@ -59,20 +80,23 @@ const getGalleryCollections = async ({
   return galleryCollections;
 }
 
-const GetGalleries = async ({ filteredCookies }) => {
+const GetGalleries = async ({ filteredCookies, userEmail }) => {
   try {
-    const [latestGallery] = await GetGalleriesFromDb({ limit: 1, sort: { createdAt: -1 } });
+    console.log({ userEmail });
+    const [latestGallery] = await GetGalleriesFromDb({ filterParams: { userEmail }, limit: 1, sort: { createdAt: -1 } });
+    console.log({ latestGallery })
     let pageNumber;
     const { pageNumber: latestPageNumber = 0 } = latestGallery || {};
     console.log({ latestPageNumber });
     pageNumber = latestPageNumber + 1;
+    console.log({ pageNumber });
+
     const galleries = [];
     // api call to get client gallery collections
     const response = await axios({
-      url: 'https://galleries.pixieset.com/api/v1/dashboard_listings?page=1',
+      url: 'https://galleries.pixieset.com/api/v1/dashboard_listings',
       method: 'GET',
       headers: {
-        'content-type': 'application/json',
         cookie: filteredCookies
       },
       params: {
@@ -86,14 +110,15 @@ const GetGalleries = async ({ filteredCookies }) => {
     const { collections } = galleriesData || {};
 
     let galleryCollections = await getGalleryCollections({ galleries: collections, filteredCookies });
-    await SaveGalleries({ galleries: galleryCollections, pageNumber });
+    await SaveGalleries({ galleries: galleryCollections, pageNumber, userEmail });
 
     galleries.push(...galleryCollections);
+
+    console.log({ lastPage, pageNumber });
 
     // loop through all the pages
     while (lastPage !== pageNumber) {
       pageNumber += 1;
-      console.log({ pageNumber })
       const response = await axios({
         url: 'https://galleries.pixieset.com/api/v1/dashboard_listings?page=1',
         method: 'GET',
@@ -112,13 +137,14 @@ const GetGalleries = async ({ filteredCookies }) => {
 
       galleryCollections = await getGalleryCollections({ galleries: collections, filteredCookies });
 
-      await SaveGalleries({ galleries: galleryCollections, pageNumber });
+      await SaveGalleries({ galleries: galleryCollections, pageNumber, userEmail });
 
       galleries.push(...galleryCollections);
     }
 
     await UpdateGallery({
       filterParams: {
+        userEmail,
         collectionId: galleries[galleries.length - 1]?.collectionId
       },
       updateParams: {
@@ -127,23 +153,43 @@ const GetGalleries = async ({ filteredCookies }) => {
     });
 
     // header for Galleries.csv
-    const header = 'Gallery Name,Number of Photos,Event Date,Event Category\n';
+    const header = 'Gallery Name,Cover Photo Url, Number of Photos,Event Date,Event Category\n';
 
     // generate rows with the data
-    const csvRows = galleries.map(({ galleryName, numberOfPhotos, eventDate, categories }) => {
-      return `${galleryName},${numberOfPhotos},${eventDate},${categories || ''}`;
+    const csvRows = galleries.map(({ galleryName, coverPhoto, numberOfPhotos, eventDate, categories }) => {
+      return `${galleryName},${coverPhoto},${numberOfPhotos},${eventDate},${categories || ''}`;
     }).join('\n');
 
     const csvData = header + csvRows;
 
-    const outputPath = path.join(process.cwd(), 'Galleries.csv');
+    const outputPath = path.join(`${process.cwd()}/${userEmail}`, 'Galleries.csv');
 
-    // write file
-    fs.writeFile(outputPath, csvData, (err) => {
+    fs.mkdir(path.dirname(outputPath), { recursive: true }, (err) => {
       if (err) {
-        console.error('Error writing to CSV file:', err);
+        console.error('Error creating directory:', err);
       } else {
-        console.log('CSV file was successfully written to:', outputPath);
+        // Check if file exists and write/append accordingly
+        fs.access(outputPath, fs.constants.F_OK, (err) => {
+          if (err) {
+            // If file does not exist, write header and data
+            fs.writeFile(outputPath, header + csvData, (err) => {
+              if (err) {
+                console.error('Error writing to CSV file:', err);
+              } else {
+                console.log('CSV file was successfully written to:', outputPath);
+              }
+            });
+          } else {
+            // If file exists, just append the data without the header
+            fs.appendFile(outputPath, '\n' + csvData, (err) => {
+              if (err) {
+                console.error('Error appending to CSV file:', err);
+              } else {
+                console.log('Data was successfully appended to CSV file:', outputPath);
+              }
+            });
+          }
+        });
       }
     });
 
@@ -154,18 +200,28 @@ const GetGalleries = async ({ filteredCookies }) => {
   }
 };
 
-const GetClients = async ({ page, filteredCookies }) => {
+const GetClients = async ({ page, filteredCookies, userEmail }) => {
   try {
     let collections = [];
     // call this method to get the collections from client gallery
-    const [gallery] = await GetGalleriesFromDb({ filterParams: { allGalleriesSynced: true }, limit: 1 });
+    const [gallery] = await GetGalleriesFromDb({
+      filterParams: {
+        userEmail,
+        allGalleriesSynced: true
+      }, limit: 1
+    });
     if (gallery) {
-      collections = await GetGalleriesFromDb({ filterParams: { clientsSynced: { $exists: false } } });
+      collections = await GetGalleriesFromDb({
+        filterParams: {
+          userEmail,
+          clientsSynced: { $exists: false }
+        }
+      });
       console.log({
         collectionsFromDb: collections.length
       });
     } else {
-      collections = await GetGalleries({ filteredCookies });
+      collections = await GetGalleries({ filteredCookies, userEmail });
     }
 
     console.log({ collections: collections.length });
@@ -196,10 +252,11 @@ const GetClients = async ({ page, filteredCookies }) => {
         clientEmail: client.email
       }));
 
-      await SaveClients({ clients });
+      await SaveClients({ clients, userEmail });
 
       await UpdateGallery({
         filterParams: {
+          userEmail,
           collectionId: collection.collectionId
         },
         updateParams: {
@@ -231,14 +288,32 @@ const GetClients = async ({ page, filteredCookies }) => {
 
       const csvData = header + csvRows;
 
-      const outputPath = path.join(process.cwd(), 'Clients.csv');
-
-      // write file
-      fs.writeFile(outputPath, csvData, (err) => {
+      const outputPath = path.join(`${process.cwd()}/${userEmail}`, 'Clients.csv');
+      fs.mkdir(path.dirname(outputPath), { recursive: true }, (err) => {
         if (err) {
-          console.error('Error writing to CSV file:', err);
+          console.error('Error creating directory:', err);
         } else {
-          console.log('CSV file was successfully written to:', outputPath);
+          fs.access(outputPath, fs.constants.F_OK, (err) => {
+            if (err) {
+              // If file does not exist, write header and data
+              fs.writeFile(outputPath, header + csvData, (err) => {
+                if (err) {
+                  console.error('Error writing to CSV file:', err);
+                } else {
+                  console.log('CSV file was successfully written to:', outputPath);
+                }
+              });
+            } else {
+              // If file exists, just append the data without the header
+              fs.appendFile(outputPath, '\n' + csvData, (err) => {
+                if (err) {
+                  console.error('Error appending to CSV file:', err);
+                } else {
+                  console.log('Data was successfully appended to CSV file:', outputPath);
+                }
+              });
+            }
+          });
         }
       });
     }
@@ -248,7 +323,8 @@ const GetClients = async ({ page, filteredCookies }) => {
       page,
       filteredCookies,
       collections,
-      galleriesSynced: !isEmpty(gallery)
+      galleriesSynced: !isEmpty(gallery),
+      userEmail
     });
     return true;
   } catch (err) {
@@ -261,7 +337,8 @@ export const GetGalleryPhotos = async ({
   page,
   filteredCookies,
   collections,
-  galleriesSynced
+  galleriesSynced,
+  userEmail
 }) => {
   try {
     console.log({
@@ -272,7 +349,12 @@ export const GetGalleryPhotos = async ({
     // call this method to get the collections from client gallery
     const photosData = [];
 
-    collections = await GetGalleriesFromDb({ filterParams: { gallerySetsSynced: { $exists: false } } });
+    collections = await GetGalleriesFromDb({
+      filterParams: {
+        userEmail,
+        gallerySetsSynced: { $exists: false }
+      }
+    });
 
     console.log({
       collectionsInGetPhotos: collections.length
@@ -298,10 +380,11 @@ export const GetGalleryPhotos = async ({
       gallerySets = data;
 
 
-      await SaveGallerySets({ gallerySets, galleryName: collection.name });
+      await SaveGallerySets({ gallerySets, galleryName: collection.name, userEmail });
 
       await UpdateGallery({
         filterParams: {
+          userEmail,
           collectionId: collection.collectionId
         },
         updateParams: {
@@ -314,6 +397,7 @@ export const GetGalleryPhotos = async ({
 
     gallerySets = await GetGallerySets({
       filterParams: {
+        userEmail,
         photosSynced: { $exists: false }
       }
     });
@@ -344,6 +428,7 @@ export const GetGalleryPhotos = async ({
         setId: set.setId,
         galleryName: set.galleryName || '',
         photoId: photo.id || '',
+        name: photo.name || '',
         photoUrl: photo.path_xxlarge || '',
         xLarge: photo.path_xlarge || '',
         large: photo.path_large || '',
@@ -356,10 +441,11 @@ export const GetGalleryPhotos = async ({
 
       photosData.push(...gallerySetPhotos);
 
-      await SaveGalleryPhotos({ photos: gallerySetPhotos, setName: set.name });
+      await SaveGalleryPhotos({ photos: gallerySetPhotos, setName: set.name, userEmail });
 
       await UpdateGallerySet({
         filterParams: {
+          userEmail,
           collectionId: set.collectionId,
           setId: set.setId
         },
@@ -371,13 +457,14 @@ export const GetGalleryPhotos = async ({
 
     if (photosData.length) {
       // header for Photos.csv
-      const header = 'Gallery Name,Photo Id,Photo Url,X Large,Large,Medium,Thumb,Display Small,Display Medium,Display Large\n';
+      const header = 'Gallery Name,Photo Id, Photo Name, Photo Url,X Large,Large,Medium,Thumb,Display Small,Display Medium,Display Large\n';
 
       // generate rows with the data
       const csvRows = photosData.map((photo) => {
         const {
           galleryName,
           photoId,
+          name,
           photoUrl,
           xLarge,
           large,
@@ -388,7 +475,7 @@ export const GetGalleryPhotos = async ({
           displayLarge
         } = photo || {};
 
-        return `${galleryName},${photoId},` +
+        return `${galleryName},${photoId},${name},` +
           `${photoUrl ? 'https:' + photoUrl : ''},` +
           `${xLarge ? 'https:' + xLarge : ''},` +
           `${large ? 'https:' + large : ''},` +
@@ -402,14 +489,32 @@ export const GetGalleryPhotos = async ({
 
       const csvData = header + csvRows;
 
-      const outputPath = path.join(process.cwd(), 'Photos.csv');
-
-      // write file
-      fs.writeFile(outputPath, csvData, (err) => {
+      const outputPath = path.join(`${process.cwd()}/${userEmail}`, 'Photos.csv');
+      fs.mkdir(path.dirname(outputPath), { recursive: true }, (err) => {
         if (err) {
-          console.error('Error writing to CSV file:', err);
+          console.error('Error creating directory:', err);
         } else {
-          console.log('CSV file was successfully written to:', outputPath);
+          fs.access(outputPath, fs.constants.F_OK, (err) => {
+            if (err) {
+              // If file does not exist, write header and data
+              fs.writeFile(outputPath, header + csvData, (err) => {
+                if (err) {
+                  console.error('Error writing to CSV file:', err);
+                } else {
+                  console.log('CSV file was successfully written to:', outputPath);
+                }
+              });
+            } else {
+              // If file exists, just append the data without the header
+              fs.appendFile(outputPath, '\n' + csvData, (err) => {
+                if (err) {
+                  console.error('Error appending to CSV file:', err);
+                } else {
+                  console.log('Data was successfully appended to CSV file:', outputPath);
+                }
+              });
+            }
+          });
         }
       });
     }
