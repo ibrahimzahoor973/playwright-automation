@@ -1,9 +1,14 @@
+import pkg from 'lodash';
+
 import Gallery from '../models/gallery.js';
+
+const { extend }  = pkg;
 
 const SaveGalleries = async ({
   galleries,
   pageNumber,
-  userEmail
+  userEmail,
+  platform
 }) => {
   const writeData = galleries.map((gallery) => {
     const {
@@ -26,7 +31,8 @@ const SaveGalleries = async ({
             name,
             numberOfPhotos,
             eventDate,
-            eventCategory
+            eventCategory,
+            platform
           }
         },
         upsert: true
@@ -53,10 +59,20 @@ const UpdateGallery = async ({
   filterParams,
   updateParams
 }) => {
+  const { retryCount } = updateParams || {};
+
+  delete updateParams.retryCount;
+
+  const updateObj = { $set: updateParams };
+
+  if (retryCount) {
+    extend(updateObj, { $inc: { retryCount: 1 } });
+  }
+
   await Gallery.updateOne({
     ...filterParams
   }, {
-    ...updateParams
+    ...updateObj
   });
 };
 

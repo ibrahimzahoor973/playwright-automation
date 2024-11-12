@@ -1,13 +1,15 @@
-import axios from '../config/axios.js';
+import axios from '../../config/axios.js';
 import https from 'https';
 import path from 'path';
 import fs from 'fs';
 
-import { GetGallerySets, UpdateGallerySet } from '../db-services/gallery-set.js';
-import { GetGalleries, UpdateGallery } from '../db-services/gallery.js';
-import { GetGalleryPhotos, UpdateGalleryPhoto } from '../db-services/photo.js';
+import { GetGallerySets, UpdateGallerySet } from '../../db-services/gallery-set.js';
+import { GetGalleries, UpdateGallery } from '../../db-services/gallery.js';
+import { GetGalleryPhotos, UpdateGalleryPhoto } from '../../db-services/photo.js';
 
-import { sleep } from './helpers.js';
+import { sleep } from '../helpers/common.js';
+
+const { platform } = process.env;
 
 const BASE_DELAY_MS = 240;
 const retries = 3;
@@ -35,7 +37,7 @@ const DownloadPhoto = async ({
       },
       responseType: 'stream'
     }).then((streamResponse) => {
-      const filePath = path.join(process.cwd(), `PhotoGallery/${userEmail}`, `${galleryName}/${setName}/${name}.jpg`);
+      const filePath = path.join(process.cwd(), `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}.jpg`);
       console.log({ filePath });
 
       // Check if the directory exists and create it if it doesn't
@@ -90,11 +92,16 @@ const DownloadPhotos = async ({
     [gallery] = await GetGalleries({
       filterParams: {
         userEmail,
+        platform,
         $or: [
           { isLocked: { $exists: false } },
           { isLocked: false }
         ],
-        isDownloaded: { $exists: false }
+        isDownloaded: { $exists: false },
+        $or: [
+          { retryCount: { $exists: false } },
+          { retryCount: { $lt: 3 } }
+        ]
       }, limit: 1
     });
     let photosData;
@@ -138,6 +145,7 @@ const DownloadPhotos = async ({
                 index: k,
                 userEmail
               });
+
               await UpdateGalleryPhoto({ filterParams: {
                 userEmail,
                 photoId: photo.photoId
@@ -145,6 +153,11 @@ const DownloadPhotos = async ({
               updateParams: { isDownloaded: true } });
             } catch (err) {
               console.log('Error while downloading Photo', photo.photoId);
+              await UpdateGalleryPhoto({ filterParams: {
+                userEmail,
+                photoId: photo.photoId
+              },
+              updateParams: { problematic: true } });
               errorInGallery = true;
               errorInGallerySet = true
             }
@@ -178,7 +191,7 @@ const DownloadPhotos = async ({
               userEmail,
               collectionId: gallery.collectionId
             },
-            updateParams: { isLocked: false }
+            updateParams: { isLocked: false, retryCount: 1 }
           });
         }
 

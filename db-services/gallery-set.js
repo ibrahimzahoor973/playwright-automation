@@ -1,20 +1,47 @@
 import GallerySet from '../models/gallery-set.js';
 
+import PLATFORMS from '../constants.js';
+
 const SaveGallerySets = async ({
   gallerySets,
-  galleryName
+  galleryName,
+  userEmail,
+  platform
 }) => {
+  let collectionId;
+  let setId;
+  let numberOfPhotos;
+  let name;
+
   const writeData = gallerySets.map((set) => {
-    const {
-      collection_id: collectionId,
-      id: setId,
-      photo_count: numberOfPhotos,
-      name
-    } = set;
+    if (platform === PLATFORMS.PIXIESET) {
+      const {
+        collection_id,
+        id,
+        photo_count,
+        name: setName
+      } = set;
+
+      collectionId = collection_id;
+      setId = id;
+      numberOfPhotos = photo_count;
+      name = setName
+    } else if (platform === PLATFORMS.PIC_TIME) {
+      const {
+        galleryId,
+        sceneId,
+        name: setName
+      } = set;
+
+      collectionId = galleryId;
+      setId = sceneId;
+      name = setName
+    }
 
     return {
       updateOne: {
         filter: {
+          userEmail,
           setId
         },
         update: {
@@ -22,7 +49,8 @@ const SaveGallerySets = async ({
             collectionId,
             galleryName,
             numberOfPhotos,
-            name
+            name,
+            platform
           }
         },
         upsert: true
@@ -46,6 +74,18 @@ const UpdateGallerySet = async ({
   });
 };
 
+const UpdateGallerySets = async ({
+  filterParams,
+  updateParams
+}) => {
+  await GallerySet.updateMany({
+    ...filterParams
+  }, {
+    ...updateParams
+  });
+};
+
+
 const GetGallerySets = async ({
   filterParams
 }) => {
@@ -57,6 +97,7 @@ const GetGallerySets = async ({
 export {
   GetGallerySets,
   SaveGallerySets,
-  UpdateGallerySet
+  UpdateGallerySet,
+  UpdateGallerySets
 };
 

@@ -9,7 +9,8 @@ const schema = new Schema({
   eventCategory: { type: String },
   clientsSynced: { type: Boolean },
   allGalleriesSynced: { type: Boolean },
-  gallerySetsSynced: { type: Boolean }
+  gallerySetsSynced: { type: Boolean },
+  platform: { type: String }
 }, {
   timestamps: true,
   strict: false

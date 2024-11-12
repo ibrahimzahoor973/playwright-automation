@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import { connect } from 'puppeteer-real-browser';
 
-import GetClients, { sleep, getCookies, parseProxyUrl } from '../helpers.js';
-import DownloadPhotos from '../download-photos.js';
+import GetClients from '../helpers/pixieset-helpers.js';
+import { sleep, getCookies, parseProxyUrl } from '../helpers/common.js';
+
+import DownloadPhotos from '../download-services/download-pixieset-photos.js'
 
 
 const {
@@ -10,7 +12,7 @@ const {
   userPassword,
   PROXY_SETTINGS: proxySettings,
   downloadPhotos,
-  proxy
+  proxy: proxyUrl
 } = process.env;
 
 console.log({
@@ -19,11 +21,12 @@ console.log({
 });
 
 (async () => {
+  let browser;
   console.log({ sessionDir: `${process.cwd()}/public/sessions/${userEmail}` })
 
-  const proxy = parseProxyUrl(proxy);
+  const proxyObject = parseProxyUrl(proxyUrl);
 
-  console.log(proxy)
+  console.log(proxyObject)
 
   connect({
     userDataDir: `${process.cwd()}/public/sessions/${userEmail}`,
@@ -47,11 +50,13 @@ console.log({
 
     connectOption: {},
 
-    proxy
+    proxy: proxyObject
 
   })
     .then(async (response) => {
-      const { browser, page } = response;
+      const { browser: webBrowser, page } = response;
+
+      browser = webBrowser;
 
       await page.setViewport({ width: 1920, height: 1080 });
 

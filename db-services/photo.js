@@ -1,15 +1,20 @@
 import Photo from '../models/photo.js';
 
+import PLATFORMS from '../constants.js';
+
 const SaveGalleryPhotos = async ({
   photos,
   setName,
-  userEmail
+  userEmail,
+  platform
 }) => {
   const writeData = photos.map((photo) => {
     const {
       collectionId,
       setId,
+      name,
       galleryName,
+      setName: sceneName,
       photoId,
       photoUrl,
       xLarge,
@@ -21,6 +26,31 @@ const SaveGalleryPhotos = async ({
       displayLarge
     } = photo;
 
+    let setObj = {
+      galleryName,
+      setName,
+      name,
+      platform,
+      photoId,
+      photoUrl,
+      xLarge,
+      large,
+      medium,
+      thumb,
+      displaySmall,
+      displayMedium,
+      displayLarge
+    };
+
+    if (platform === PLATFORMS.PIC_TIME) {
+      setObj = {
+        galleryName,
+        setName: sceneName,
+        name,
+        platform
+      }
+    }
+
     return {
       updateOne: {
         filter: {
@@ -30,19 +60,7 @@ const SaveGalleryPhotos = async ({
           photoId
         },
         update: {
-          $set : {
-            galleryName,
-            setName,
-            photoId,
-            photoUrl,
-            xLarge,
-            large,
-            medium,
-            thumb,
-            displaySmall,
-            displayMedium,
-            displayLarge
-          }
+          $set : setObj
         },
         upsert: true
       }
@@ -73,9 +91,22 @@ const UpdateGalleryPhoto = async ({
   });
 };
 
+const UpdateGalleryPhotos = async ({
+  filterParams,
+  updateParams
+}) => {
+  await Photo.updateMany({
+    ...filterParams
+  }, {
+    ...updateParams
+  });
+};
+
+
 export {
   GetGalleryPhotos,
   SaveGalleryPhotos,
-  UpdateGalleryPhoto
+  UpdateGalleryPhoto,
+  UpdateGalleryPhotos
 };
 
