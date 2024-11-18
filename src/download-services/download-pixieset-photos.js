@@ -37,7 +37,8 @@ const DownloadPhoto = async ({
       },
       responseType: 'stream'
     }).then((streamResponse) => {
-      const filePath = path.join(process.cwd(), `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}.jpg`);
+      // const filePath = path.join(process.cwd(), `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
+      const filePath = path.join('D:', `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
       console.log({ filePath });
 
       // Check if the directory exists and create it if it doesn't

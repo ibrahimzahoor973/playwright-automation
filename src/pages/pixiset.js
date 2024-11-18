@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import { connect } from 'puppeteer-real-browser';
+import pkg from 'lodash';
 
 import GetClients from '../helpers/pixieset-helpers.js';
 import { sleep, getCookies, parseProxyUrl } from '../helpers/common.js';
 
 import DownloadPhotos from '../download-services/download-pixieset-photos.js'
 
+const { extend } = pkg;
 
 const {
   userEmail,
@@ -24,11 +26,7 @@ console.log({
   let browser;
   console.log({ sessionDir: `${process.cwd()}/public/sessions/${userEmail}` })
 
-  const proxyObject = parseProxyUrl(proxyUrl);
-
-  console.log(proxyObject)
-
-  connect({
+  const connectConfig = {
     userDataDir: `${process.cwd()}/public/sessions/${userEmail}`,
     headless: false,
     args: [
@@ -48,11 +46,16 @@ console.log({
 
     turnstile: true,
 
-    connectOption: {},
+    connectOption: {}
+  }
 
-    proxy: proxyObject
+  if (proxyUrl) {
+    const proxyObject = parseProxyUrl(proxyUrl);
+    extend(connectConfig, { proxy: proxyObject });
+    console.log(proxyObject);
+  }
 
-  })
+  connect(connectConfig)
     .then(async (response) => {
       const { browser: webBrowser, page } = response;
 

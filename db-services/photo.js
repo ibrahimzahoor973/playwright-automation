@@ -1,74 +1,86 @@
+import pkg from 'lodash';
+
 import Photo from '../models/photo.js';
 
 import PLATFORMS from '../constants.js';
 
+const { chunk }  = pkg;
+
 const SaveGalleryPhotos = async ({
-  photos,
+  photos: photosData,
   setName,
   userEmail,
   platform
 }) => {
-  const writeData = photos.map((photo) => {
-    const {
-      collectionId,
-      setId,
-      name,
-      galleryName,
-      setName: sceneName,
-      photoId,
-      photoUrl,
-      xLarge,
-      large,
-      medium,
-      thumb,
-      displaySmall,
-      displayMedium,
-      displayLarge
-    } = photo;
+  const photosChunks = chunk(photosData, 200);
 
-    let setObj = {
-      galleryName,
-      setName,
-      name,
-      platform,
-      photoId,
-      photoUrl,
-      xLarge,
-      large,
-      medium,
-      thumb,
-      displaySmall,
-      displayMedium,
-      displayLarge
-    };
+  console.log({ photosChunks: photosChunks.length });
 
-    if (platform === PLATFORMS.PIC_TIME) {
-      setObj = {
+  for (let i = 0; i < photosChunks.length; i += 1) {
+    const photos = photosChunks[i];
+
+    const writeData = photos.map((photo) => {
+      const {
+        collectionId,
+        setId,
+        name,
         galleryName,
         setName: sceneName,
+        photoId,
+        photoUrl,
+        xLarge,
+        large,
+        medium,
+        thumb,
+        displaySmall,
+        displayMedium,
+        displayLarge
+      } = photo;
+  
+      let setObj = {
+        galleryName,
+        setName,
         name,
-        platform
+        platform,
+        photoId,
+        photoUrl,
+        xLarge,
+        large,
+        medium,
+        thumb,
+        displaySmall,
+        displayMedium,
+        displayLarge
+      };
+  
+      if (platform === PLATFORMS.PIC_TIME) {
+        setObj = {
+          galleryName,
+          setName: sceneName,
+          name,
+          platform
+        }
       }
-    }
-
-    return {
-      updateOne: {
-        filter: {
-          userEmail,
-          collectionId,
-          setId,
-          photoId
-        },
-        update: {
-          $set : setObj
-        },
-        upsert: true
+  
+      return {
+        updateOne: {
+          filter: {
+            userEmail,
+            collectionId,
+            setId,
+            photoId
+          },
+          update: {
+            $set : setObj
+          },
+          upsert: true
+        }
       }
+    });
+    if (writeData.length) {
+      const res =  await Photo.bulkWrite(writeData);
+      console.log({ SaveGalleryPhotos: res });
     }
-  });
-  if (writeData.length) {
-    const res =  await Photo.bulkWrite(writeData);
-    console.log({ SaveGalleryPhotos: res });
   }
 };
 

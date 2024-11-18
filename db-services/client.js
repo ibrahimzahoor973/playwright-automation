@@ -1,37 +1,49 @@
+import pkg from 'lodash';
+
 import Client from '../models/client.js';
 
+const { chunk } = pkg;
+
 const SaveClients = async ({
-  clients,
+  clients: clientsData,
   userEmail
 }) => {
-  const writeData = clients.map((client) => {
-    const {
-      collectionId,
-      galleryName,
-      clientName: name,
-      clientEmail: email
-    } = client;
+  const clientChunks = chunk(clientsData, 200);
 
-    return {
-      updateOne: {
-        filter: {
-          userEmail,
-          collectionId,
-          email
-        },
-        update: {
-          $set : {
-            galleryName,
-            name
-          }
-        },
-        upsert: true
+  console.log({ clientChunks: clientChunks.length });
+
+  for (let i = 0; i < clientChunks.length; i += 1) {
+    const clients = clientChunks[i];
+
+    const writeData = clients.map((client) => {
+      const {
+        collectionId,
+        galleryName,
+        clientName: name,
+        clientEmail: email
+      } = client;
+  
+      return {
+        updateOne: {
+          filter: {
+            userEmail,
+            collectionId,
+            email
+          },
+          update: {
+            $set : {
+              galleryName,
+              name
+            }
+          },
+          upsert: true
+        }
       }
+    });
+    if (writeData.length) {
+      const res =  await Client.bulkWrite(writeData);
+      console.log({ SaveClients: res });
     }
-  });
-  if (writeData.length) {
-    const res =  await Client.bulkWrite(writeData);
-    console.log({ SaveClients: res });
   }
 };
 

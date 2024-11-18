@@ -17,16 +17,13 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
     downloadPhotos
   } = process.env;
 
-  const proxyObject = parseProxyUrl(proxyUrl);
+  let proxyObject;
 
-  console.log(proxyObject)
+  if (proxyUrl) {
+    proxyObject = parseProxyUrl(proxyUrl);
+  }
 
-  const {
-    host: ip,
-    port,
-    username,
-    password
-  } = proxyObject;
+  console.log({proxyObject})
 
   let browser;
   try {
@@ -46,7 +43,7 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
           '--disable-gpu',
           '--disable-features=IsolateOrigins,site-per-process',
           '--start-maximized',
-          `--proxy-server=${ip}:${port}`
+          `${proxyObject ? `--proxy-server=${proxyObject.host}:${proxyObject.port}` : ''}`
         ]
       };
     
@@ -54,8 +51,10 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
     
       const page = await browser.newPage();
     
-      await page.authenticate({ username, password });
+      if (proxyObject) {
+      await page.authenticate({ username: proxyObject.username, password: proxyObject.password }); 
       console.log('Proxy Authenticated!');
+      }
 
       await page.goto('https://us.pic-time.com/professional#dash', { timeout: 60000 });
 

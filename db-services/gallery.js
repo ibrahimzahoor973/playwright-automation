@@ -2,46 +2,54 @@ import pkg from 'lodash';
 
 import Gallery from '../models/gallery.js';
 
-const { extend }  = pkg;
+const { extend, chunk }  = pkg;
 
 const SaveGalleries = async ({
-  galleries,
+  galleries: galleriesData,
   pageNumber,
   userEmail,
   platform
 }) => {
-  const writeData = galleries.map((gallery) => {
-    const {
-      collectionId,
-      eventDate,
-      galleryName: name,
-      numberOfPhotos,
-      categories: eventCategory
-    } = gallery;
+  const galleryChunks = chunk(galleriesData, 200);
 
-    return {
-      updateOne: {
-        filter: {
-          userEmail,
-          collectionId
-        },
-        update: {
-          $set : {
-            pageNumber,
-            name,
-            numberOfPhotos,
-            eventDate,
-            eventCategory,
-            platform
-          }
-        },
-        upsert: true
+  console.log({ galleryChunks: galleryChunks.length });
+
+  for (let i = 0; i < galleryChunks.length; i += 1 ) {
+    const galleries = galleryChunks[i];
+
+    const writeData = galleries.map((gallery) => {
+      const {
+        collectionId,
+        eventDate,
+        galleryName: name,
+        numberOfPhotos,
+        categories: eventCategory
+      } = gallery;
+  
+      return {
+        updateOne: {
+          filter: {
+            userEmail,
+            collectionId
+          },
+          update: {
+            $set : {
+              pageNumber,
+              name,
+              numberOfPhotos,
+              eventDate,
+              eventCategory,
+              platform
+            }
+          },
+          upsert: true
+        }
       }
+    });
+    if (writeData.length) {
+      const res =  await Gallery.bulkWrite(writeData);
+      console.log({ SaveGalleries: res });
     }
-  });
-  if (writeData.length) {
-    const res =  await Gallery.bulkWrite(writeData);
-    console.log({ SaveGalleries: res });
   }
 };
 
