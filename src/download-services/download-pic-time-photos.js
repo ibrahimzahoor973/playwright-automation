@@ -166,6 +166,7 @@ const DownloadPhotos = async ({
       filterParams: {
         userEmail,
         platform,
+        isArchived: { $exists: false },
         $or: [
           { isLocked: { $exists: false } },
           { isLocked: false }

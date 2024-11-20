@@ -1,20 +1,20 @@
 import 'dotenv/config';
+import '../../config/database.js';
 import chrome from 'puppeteer-extra';
 
-import { sleep, getCookies, parseProxyUrl } from '../helpers/common.js';
+import { sleep, parseProxyUrl } from '../helpers/common.js';
 
-import { GetSetsAndPhotos, HandleOldGalleries } from '../helpers/pic-time-helpers.js';
-
-import DownloadPhotos from '../download-services/download-pic-time-photos.js';
+import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-services/download-pic-time-archived-photos.js';
 
 (async () => {
 
   const {
     userEmail,
-    userPassword,
     proxy: proxyUrl,
     platform,
-    downloadPhotos
+    downloadPhotos,
+    clientEmail,
+    clientPassword
   } = process.env;
 
   let proxyObject;
@@ -23,12 +23,10 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
     proxyObject = parseProxyUrl(proxyUrl);
   }
 
-  console.log({proxyObject})
-
   let browser;
   try {
     const rootDirectory = process.cwd();
-    const folderPath = `${rootDirectory}/public/sessions/${platform}/${userEmail}/report`;
+    const folderPath = `${rootDirectory}/public/sessions/${platform}/${clientEmail}/report`;
   
       const browserOpts = {
         headless: true,
@@ -56,19 +54,19 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
       console.log('Proxy Authenticated!');
       }
 
-      await page.goto('https://us.pic-time.com/professional#dash', { timeout: 60000 });
+      await page.goto('https://us.pic-time.com/account', { timeout: 60000 });
 
-      if (page.url().includes('/login')) {
+      if (page.url().includes('/login') || page.url().includes('!loginuser')) {
 
         const emailSelector = await page.$('input[type=email]');
 
         console.log({ emailSelector });
-
+        
         await emailSelector.click();
         await emailSelector.click({ clickCount: 3 });
         await emailSelector.press('Backspace');
-        
-        await emailSelector.type(userEmail, { delay: 300 });
+
+        await emailSelector.type(clientEmail, { delay: 300 });
         await sleep(10);
 
         const continueButton1 = await page.$('::-p-xpath(//button[@type="submit"])');
@@ -76,11 +74,14 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
   
         const continueButton = await page.$('button[type=submit]')
 
+        console.log({ continueButton })
+
         await continueButton.click();
         await sleep(10);
         const passwordSelector = await page.$('input[type=password]');
-        await passwordSelector.type(userPassword, { delay: 300 });
-        
+
+        await passwordSelector.type(clientPassword, { delay: 300 });
+
         await sleep(10);
 
         const loginButton = await page.$('::-p-xpath(//button[text()="Login"])')
@@ -92,33 +93,17 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
         await sleep(10);
       }
 
-      const url = page.url();
-      const baseUrl =  new URL(url).origin;
-
-      console.log({ baseUrl });
-
-      await page.goto(`${baseUrl}/professional#dash`);
-
-      const cookies = await page.cookies();
-
-      const filteredCookies = getCookies({ cookies });
-
-      if (!downloadPhotos) {
-        await GetSetsAndPhotos({ baseUrl, filteredCookies });
-      }
-
-      await DownloadPhotos({
-        baseUrl,
-        filteredCookies,
+      // method to request High-res photos for downloading
+      await RetrieveArchivedPhotos({
+        page,
         userEmail
       });
 
-      // Allow High-res photos & share with client 
-      await HandleOldGalleries({
-        baseUrl,
-        filteredCookies
+      // Download Retrieved Photos if Available
+      await DownloadRetrievedPhotos({
+        page
       });
-
+   
   } catch (error) {
     console.log({ error });
   } finally {

@@ -8,7 +8,8 @@ const SaveGalleries = async ({
   galleries: galleriesData,
   pageNumber,
   userEmail,
-  platform
+  platform,
+  baseUrl
 }) => {
   const galleryChunks = chunk(galleriesData, 200);
 
@@ -39,13 +40,15 @@ const SaveGalleries = async ({
               numberOfPhotos,
               eventDate,
               eventCategory,
-              platform
+              platform,
+              baseUrl
             }
           },
           upsert: true
         }
       }
     });
+
     if (writeData.length) {
       const res =  await Gallery.bulkWrite(writeData);
       console.log({ SaveGalleries: res });
@@ -84,10 +87,22 @@ const UpdateGallery = async ({
   });
 };
 
+const UpdateGalleries = async ({
+  filterParams,
+  updateParams
+}) => {
+  await Gallery.updateMany({
+    ...filterParams
+  }, {
+    ...updateParams
+  });
+};
+
 
 export {
   GetGalleries,
   SaveGalleries,
-  UpdateGallery
+  UpdateGallery,
+  UpdateGalleries
 };
 
