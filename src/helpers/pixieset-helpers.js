@@ -143,6 +143,8 @@ const GetGalleries = async ({ filteredCookies, userEmail }) => {
 
     // const outputPath = path.join(`${process.cwd()}/${userEmail}`, 'Galleries.csv');
 
+    // // const outputPath = path.join('D:', `Pixieset-Metadata/${userEmail}`, 'Galleries.csv');
+
     // fs.mkdir(path.dirname(outputPath), { recursive: true }, (err) => {
     //   if (err) {
     //     console.error('Error creating directory:', err);
@@ -151,7 +153,7 @@ const GetGalleries = async ({ filteredCookies, userEmail }) => {
     //     fs.access(outputPath, fs.constants.F_OK, (err) => {
     //       if (err) {
     //         // If file does not exist, write header and data
-    //         fs.writeFile(outputPath, header + csvData, (err) => {
+    //         fs.writeFile(outputPath, csvData, (err) => {
     //           if (err) {
     //             console.error('Error writing to CSV file:', err);
     //           } else {
@@ -160,7 +162,7 @@ const GetGalleries = async ({ filteredCookies, userEmail }) => {
     //         });
     //       } else {
     //         // If file exists, just append the data without the header
-    //         fs.appendFile(outputPath, '\n' + csvData, (err) => {
+    //         fs.appendFile(outputPath, '\n' + csvRows, (err) => {
     //           if (err) {
     //             console.error('Error appending to CSV file:', err);
     //           } else {
@@ -275,6 +277,9 @@ const GetClients = async ({ page, filteredCookies, userEmail }) => {
     //   const csvData = header + csvRows;
 
     //   const outputPath = path.join(`${process.cwd()}/${userEmail}`, 'Clients.csv');
+
+    //   // const outputPath = path.join('D:', `Pixieset-Metadata/${userEmail}`, 'Clients.csv');
+
     //   fs.mkdir(path.dirname(outputPath), { recursive: true }, (err) => {
     //     if (err) {
     //       console.error('Error creating directory:', err);
@@ -282,7 +287,7 @@ const GetClients = async ({ page, filteredCookies, userEmail }) => {
     //       fs.access(outputPath, fs.constants.F_OK, (err) => {
     //         if (err) {
     //           // If file does not exist, write header and data
-    //           fs.writeFile(outputPath, header + csvData, (err) => {
+    //           fs.writeFile(outputPath, csvData, (err) => {
     //             if (err) {
     //               console.error('Error writing to CSV file:', err);
     //             } else {
@@ -291,7 +296,7 @@ const GetClients = async ({ page, filteredCookies, userEmail }) => {
     //           });
     //         } else {
     //           // If file exists, just append the data without the header
-    //           fs.appendFile(outputPath, '\n' + csvData, (err) => {
+    //           fs.appendFile(outputPath, '\n' + csvRows, (err) => {
     //             if (err) {
     //               console.error('Error appending to CSV file:', err);
     //             } else {
@@ -492,6 +497,8 @@ export const GetGalleryPhotos = async ({
     //   const csvData = header + csvRows;
 
     //   const outputPath = path.join(`${process.cwd()}/${userEmail}`, 'Photos.csv');
+
+    //   // const outputPath = path.join('D:', `Pixieset-Metadata/${userEmail}`, 'Photos.csv');
     //   fs.mkdir(path.dirname(outputPath), { recursive: true }, (err) => {
     //     if (err) {
     //       console.error('Error creating directory:', err);
@@ -499,7 +506,7 @@ export const GetGalleryPhotos = async ({
     //       fs.access(outputPath, fs.constants.F_OK, (err) => {
     //         if (err) {
     //           // If file does not exist, write header and data
-    //           fs.writeFile(outputPath, header + csvData, (err) => {
+    //           fs.writeFile(outputPath, csvData, (err) => {
     //             if (err) {
     //               console.error('Error writing to CSV file:', err);
     //             } else {
@@ -508,7 +515,7 @@ export const GetGalleryPhotos = async ({
     //           });
     //         } else {
     //           // If file exists, just append the data without the header
-    //           fs.appendFile(outputPath, '\n' + csvData, (err) => {
+    //           fs.appendFile(outputPath, '\n' + csvRows, (err) => {
     //             if (err) {
     //               console.error('Error appending to CSV file:', err);
     //             } else {

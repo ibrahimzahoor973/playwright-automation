@@ -24,7 +24,8 @@ const SaveGalleries = async ({
         eventDate,
         galleryName: name,
         numberOfPhotos,
-        categories: eventCategory
+        categories: eventCategory,
+        coverPhoto
       } = gallery;
   
       return {
@@ -40,6 +41,7 @@ const SaveGalleries = async ({
               numberOfPhotos,
               eventDate,
               eventCategory,
+              coverPhoto,
               platform,
               baseUrl
             }

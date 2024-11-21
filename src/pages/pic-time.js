@@ -118,12 +118,11 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
         baseUrl,
         filteredCookies
       });
-
+      process.exit();
   } catch (error) {
     console.log({ error });
   } finally {
     console.log('Finally Block Called:');
     if (browser) await browser.close();
-    process.exit();
   }
 })();
