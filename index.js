@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import './config/database.js';
 
-import PLATFORMS from './constants.js';
+import { PLATFORMS } from './constants.js';
 
 const { platform } = process.env;
 

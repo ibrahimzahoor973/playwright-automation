@@ -2,7 +2,7 @@ import pkg from 'lodash';
 
 import Photo from '../models/photo.js';
 
-import PLATFORMS from '../constants.js';
+import { PLATFORMS } from '../constants.js';
 
 const { chunk }  = pkg;
 

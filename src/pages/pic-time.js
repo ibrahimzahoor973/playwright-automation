@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import chrome from 'puppeteer-extra';
 
-import { sleep, getCookies, parseProxyUrl } from '../helpers/common.js';
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack } from '../helpers/common.js';
 
 import { GetSetsAndPhotos, HandleOldGalleries } from '../helpers/pic-time-helpers.js';
 
@@ -121,6 +121,10 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
       process.exit();
   } catch (error) {
     console.log({ error });
+    await sendNotificationOnSlack({
+      task: 'Pic Time Automation',
+      errorMessage: error?.message || 'Unknown Reason'
+    });
   } finally {
     console.log('Finally Block Called:');
     if (browser) await browser.close();

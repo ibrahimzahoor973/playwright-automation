@@ -3,7 +3,7 @@ import { connect } from 'puppeteer-real-browser';
 import pkg from 'lodash';
 
 import GetClients from '../helpers/pixieset-helpers.js';
-import { sleep, getCookies, parseProxyUrl } from '../helpers/common.js';
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack } from '../helpers/common.js';
 
 import DownloadPhotos from '../download-services/download-pixieset-photos.js'
 
@@ -114,6 +114,10 @@ console.log({
     })
     .catch(async (error) => {
       console.log(error.message);
+      await sendNotificationOnSlack({
+        task: 'Pixieset Automation',
+        errorMessage: error?.message || 'Unknown Reason'
+      });
       await browser.close();
     });
 })();

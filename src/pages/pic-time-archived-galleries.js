@@ -2,7 +2,7 @@ import 'dotenv/config';
 import '../../config/database.js';
 import chrome from 'puppeteer-extra';
 
-import { sleep, parseProxyUrl } from '../helpers/common.js';
+import { sleep, parseProxyUrl, sendNotificationOnSlack } from '../helpers/common.js';
 
 import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-services/download-pic-time-archived-photos.js';
 
@@ -106,6 +106,10 @@ import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-ser
    
   } catch (error) {
     console.log({ error });
+    await sendNotificationOnSlack({
+      task: 'Pic Time Archived Galleries Automation',
+      errorMessage: error?.message || 'Unknown Reason'
+    });
   } finally {
     console.log('Finally Block Called:');
     if (browser) await browser.close();
