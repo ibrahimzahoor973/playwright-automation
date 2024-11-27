@@ -1,20 +1,29 @@
 import 'dotenv/config';
 import chrome from 'puppeteer-extra';
+import axios from 'axios';
+import os from 'os';
 
-import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack } from '../helpers/common.js';
+import { UpdateScript } from '../../db-services/script.js';
+
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, loginMethod } from '../helpers/common.js';
 
 import { GetSetsAndPhotos, HandleOldGalleries } from '../helpers/pic-time-helpers.js';
 
 import DownloadPhotos from '../download-services/download-pic-time-photos.js';
 
+import PicTimeArchivedGalleries from './pic-time-archived-galleries.js';
+
 (async () => {
+
+  console.log('IN PIC-TIME MODULE');
 
   const {
     userEmail,
     userPassword,
     proxy: proxyUrl,
     platform,
-    downloadPhotos
+    downloadPhotos,
+    scriptPath
   } = process.env;
 
   let proxyObject;
@@ -28,13 +37,17 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
   let browser;
   try {
     const rootDirectory = process.cwd();
-    const folderPath = `${rootDirectory}/public/sessions/${platform}/${userEmail}/report`;
-  
+    const folderPath = `${rootDirectory}/public/sessions/${platform}/${userEmail}`;
+    // const folderPath = `${os.homedir()}/Desktop/playwright-automation/public/${userEmail}`;
+
+    console.log('homedir:' , os.homedir())
+
+    console.log({ folderPath });
       const browserOpts = {
         headless: true,
         ignoreHTTPSErrors: true,
         defaultViewport: null,
-        userDataDir: folderPath,
+        // userDataDir: folderPath,
         args: [
           '--headless=new',
           '--no-sandbox',
@@ -60,36 +73,11 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
 
       if (page.url().includes('/login')) {
 
-        const emailSelector = await page.$('input[type=email]');
-
-        console.log({ emailSelector });
-
-        await emailSelector.click();
-        await emailSelector.click({ clickCount: 3 });
-        await emailSelector.press('Backspace');
-        
-        await emailSelector.type(userEmail, { delay: 300 });
-        await sleep(10);
-
-        const continueButton1 = await page.$('::-p-xpath(//button[@type="submit"])');
-        console.log({ continueButton1 });
-  
-        const continueButton = await page.$('button[type=submit]')
-
-        await continueButton.click();
-        await sleep(10);
-        const passwordSelector = await page.$('input[type=password]');
-        await passwordSelector.type(userPassword, { delay: 300 });
-        
-        await sleep(10);
-
-        const loginButton = await page.$('::-p-xpath(//button[text()="Login"])')
-        await loginButton.click();
-
-        await sleep(30);
-
-        console.log('button clicked')
-        await sleep(10);
+        await loginMethod({
+          page,
+          email: userEmail,
+          password: userPassword
+        });
       }
 
       const url = page.url();
@@ -98,6 +86,8 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
       console.log({ baseUrl });
 
       await page.goto(`${baseUrl}/professional#dash`);
+
+      console.log('Current Url', page.url());
 
       const cookies = await page.cookies();
 
@@ -118,9 +108,29 @@ import DownloadPhotos from '../download-services/download-pic-time-photos.js';
         baseUrl,
         filteredCookies
       });
+
+      await browser.close();
+
+      await sleep(10);
+
+      console.log('Going to login to Pass Migrations...');
+
+      await PicTimeArchivedGalleries();
+
       process.exit();
   } catch (error) {
     console.log({ error });
+    await UpdateScript({
+      filterParams: {
+        userEmail,
+        platform,
+        scriptPath
+      },
+      updateParams: {
+        running: false,
+        errorMessage: error?.message || 'Unknown Error'
+      }
+    });
     await sendNotificationOnSlack({
       task: 'Pic Time Automation',
       errorMessage: error?.message || 'Unknown Reason'

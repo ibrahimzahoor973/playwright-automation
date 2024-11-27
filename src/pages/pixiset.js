@@ -2,8 +2,10 @@ import 'dotenv/config';
 import { connect } from 'puppeteer-real-browser';
 import pkg from 'lodash';
 
+import { UpdateScript } from '../../db-services/script.js';
+
 import GetClients from '../helpers/pixieset-helpers.js';
-import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack } from '../helpers/common.js';
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, pixiesetLoginMethod } from '../helpers/common.js';
 
 import DownloadPhotos from '../download-services/download-pixieset-photos.js'
 
@@ -14,7 +16,9 @@ const {
   userPassword,
   PROXY_SETTINGS: proxySettings,
   downloadPhotos,
-  proxy: proxyUrl
+  proxy: proxyUrl,
+  scriptPath,
+  platform
 } = process.env;
 
 console.log({
@@ -69,29 +73,14 @@ console.log({
       await page.reload();
 
       if (page.url().includes('/login')) {
-        const emailSelector = await page.$('#UserLogin_username', { visible: true });
-
-        const passwordSelector = await page.$('#UserLogin_password', { visible: true });
-  
-        console.log({
-          emailSelector,
-          passwordSelector
+        await pixiesetLoginMethod({
+          page,
+          email: userEmail,
+          password: userPassword
         });
-  
-        await emailSelector.type(userEmail, { delay: 300 });
-        await sleep(10);
-        await passwordSelector.type(userPassword, { delay: 400 });
-        await sleep(10);
-  
-        const loginButton = await page.$('#login-button');
-        console.log({ loginButton });
-  
-        loginButton.click();
-  
-        await sleep(10);
-        await page.goto('https://galleries.pixieset.com/collections', { timeout: 60000 });
       }
 
+      await page.goto('https://galleries.pixieset.com/collections', { timeout: 60000 });
 
       await sleep(10);
 
@@ -111,9 +100,33 @@ console.log({
     });
 
     await browser.close();
+
+    await UpdateScript({
+      filterParams: {
+        userEmail,
+        platform,
+        scriptPath
+      },
+      updateParams: {
+        running: false,
+        completed: true
+      }
+    });
+    process.exit();
     })
     .catch(async (error) => {
       console.log(error.message);
+      await UpdateScript({
+        filterParams: {
+          userEmail,
+          platform,
+          scriptPath
+        },
+        updateParams: {
+          running: false,
+          errorMessage: error?.message || 'Unknown Error'
+        }
+      });
       await sendNotificationOnSlack({
         task: 'Pixieset Automation',
         errorMessage: error?.message || 'Unknown Reason'

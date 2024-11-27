@@ -415,7 +415,11 @@ export const HandleOldGalleries = async ({
     filterParams: {
       userEmail,
       isArchived: true,
-      shareLink: { $exists: false }
+      shareLink: { $exists: false },
+      $or: [
+        { retryCount: { $exists: false } },
+        { retryCount: { $lt: 3 } }
+      ]
     }
   });
 
@@ -433,44 +437,56 @@ export const HandleOldGalleries = async ({
       });
   
       // Update settings & allow High-res photo downloads for the gallery
-      await allowHighResDownloads({
-        baseUrl,
-        projectId: collectionId,
-        filteredCookies
-      });
-  
-      console.log('High-Res Downloads Allowed!');
-  
-      // Add client in gallery
-      await addClientInGallery({
-        baseUrl,
-        filteredCookies,
-        collectionId
-      });
-  
-      console.log('Client Added In Gallery!');
-  
-      // create shareLink to share with Client
-      const shareLink = await createShareLink({
-        baseUrl,
-        filteredCookies,
-        collectionId
-      });
-  
-      console.log({
-        shareLink
-      });
-  
-      console.log('Link Generated!');
-  
-      await UpdateGallery({
-        filterParams: {
+      try {
+        await allowHighResDownloads({
+          baseUrl,
+          projectId: collectionId,
+          filteredCookies
+        });
+    
+        console.log('High-Res Downloads Allowed!');
+    
+        // Add client in gallery
+        await addClientInGallery({
+          baseUrl,
+          filteredCookies,
           collectionId
-        },
-        updateParams: {
+        });
+    
+        console.log('Client Added In Gallery!');
+    
+        // create shareLink to share with Client
+        const shareLink = await createShareLink({
+          baseUrl,
+          filteredCookies,
+          collectionId
+        });
+    
+        console.log({
           shareLink
-        }
-      });
+        });
+    
+        console.log('Link Generated!');
+    
+        await UpdateGallery({
+          filterParams: {
+            collectionId
+          },
+          updateParams: {
+            shareLink: shareLink || ''
+          }
+        });
+      } catch (err) {
+        console.log(`Error in Handle Old Galleries for ${collectionId}`, err);
+        await UpdateGallery({
+          filterParams: {
+            collectionId
+          },
+          updateParams: {
+            retryCount: 1
+          }
+        });
+      }
 
   await sleep(30);
   }

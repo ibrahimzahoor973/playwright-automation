@@ -1,6 +1,7 @@
 import https from 'https';
 import path from 'path';
 import AdmZip from 'adm-zip';
+import fs from 'fs';
 
 import axios from '../../config/axios.js';
 
@@ -109,12 +110,16 @@ const DownloadSetPhotos = async ({
     });
 
     // unzipping the folder
-    const zipFolder = new AdmZip(res.data);
+    const zipFolder = new AdmZip(res?.data);
 
     // const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
     const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}`);
 
     console.log({ directoryPath });
+
+    if (!fs.existsSync(directoryPath)) {
+      fs.mkdirSync(directoryPath, { recursive: true });
+    }
 
     zipFolder.extractAllTo(directoryPath, true);
 
@@ -280,7 +285,10 @@ const DownloadPhotos = async ({
               userEmail,
               collectionId: gallery.collectionId
             },
-            updateParams: { isLocked: false, retryCount: 1 }
+            updateParams: {
+              isLocked: false,
+              retryCount: 1
+             }
           });
         }
 

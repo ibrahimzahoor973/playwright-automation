@@ -192,7 +192,10 @@ const DownloadPhotos = async ({
               userEmail,
               collectionId: gallery.collectionId
             },
-            updateParams: { isLocked: false, retryCount: 1 }
+            updateParams: {
+              isLocked: false,
+              retryCount: 1
+            }
           });
         }
 

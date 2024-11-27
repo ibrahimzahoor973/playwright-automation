@@ -1,12 +1,16 @@
 import 'dotenv/config';
 import '../../config/database.js';
 import chrome from 'puppeteer-extra';
+import os from 'os';
 
-import { sleep, parseProxyUrl, sendNotificationOnSlack } from '../helpers/common.js';
+import { UpdateScript } from '../../db-services/script.js';
+
+import { sleep, parseProxyUrl, sendNotificationOnSlack, loginMethod } from '../helpers/common.js';
 
 import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-services/download-pic-time-archived-photos.js';
 
-(async () => {
+const PicTimeArchivedGalleries = async () => {
+  console.log('IN PIC-TIME ARCHIVED METHOD');
 
   const {
     userEmail,
@@ -14,7 +18,8 @@ import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-ser
     platform,
     downloadPhotos,
     clientEmail,
-    clientPassword
+    clientPassword,
+    scriptPath
   } = process.env;
 
   let proxyObject;
@@ -26,13 +31,17 @@ import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-ser
   let browser;
   try {
     const rootDirectory = process.cwd();
-    const folderPath = `${rootDirectory}/public/sessions/${platform}/${clientEmail}/report`;
+    console.log('homedir:' , os.homedir())
+    const folderPath = `${rootDirectory}/public/sessions/${platform}/${clientEmail}`;
+    // const folderPath = `${os.homedir()}/Desktop/playwright-automation/public/${clientEmail}`;
+
+    console.log({ folderPath });
   
       const browserOpts = {
         headless: true,
         ignoreHTTPSErrors: true,
         defaultViewport: null,
-        userDataDir: folderPath,
+        // userDataDir: folderPath,
         args: [
           '--headless=new',
           '--no-sandbox',
@@ -58,39 +67,11 @@ import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-ser
 
       if (page.url().includes('/login') || page.url().includes('!loginuser')) {
 
-        const emailSelector = await page.$('input[type=email]');
-
-        console.log({ emailSelector });
-        
-        await emailSelector.click();
-        await emailSelector.click({ clickCount: 3 });
-        await emailSelector.press('Backspace');
-
-        await emailSelector.type(clientEmail, { delay: 300 });
-        await sleep(10);
-
-        const continueButton1 = await page.$('::-p-xpath(//button[@type="submit"])');
-        console.log({ continueButton1 });
-  
-        const continueButton = await page.$('button[type=submit]')
-
-        console.log({ continueButton })
-
-        await continueButton.click();
-        await sleep(10);
-        const passwordSelector = await page.$('input[type=password]');
-
-        await passwordSelector.type(clientPassword, { delay: 300 });
-
-        await sleep(10);
-
-        const loginButton = await page.$('::-p-xpath(//button[text()="Login"])')
-        await loginButton.click();
-
-        await sleep(30);
-
-        console.log('button clicked')
-        await sleep(10);
+        await loginMethod({
+          page,
+          email: clientEmail,
+          password: clientPassword
+        });
       }
 
       // method to request High-res photos for downloading
@@ -103,9 +84,36 @@ import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-ser
       await DownloadRetrievedPhotos({
         page
       });
+
+      await UpdateScript({
+        filterParams: {
+          userEmail,
+          platform,
+          scriptPath
+        },
+        updateParams: {
+          running: false,
+          completed: true
+        }
+      });
+
+      await browser.close();
+
+      process.exit();
    
   } catch (error) {
     console.log({ error });
+    await UpdateScript({
+      filterParams: {
+        userEmail,
+        platform,
+        scriptPath
+      },
+      updateParams: {
+        running: false,
+        errorMessage: error?.message || 'Unknown Error'
+      }
+    });
     await sendNotificationOnSlack({
       task: 'Pic Time Archived Galleries Automation',
       errorMessage: error?.message || 'Unknown Reason'
@@ -113,6 +121,7 @@ import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-ser
   } finally {
     console.log('Finally Block Called:');
     if (browser) await browser.close();
-    process.exit();
   }
-})();
+};
+
+export default PicTimeArchivedGalleries;

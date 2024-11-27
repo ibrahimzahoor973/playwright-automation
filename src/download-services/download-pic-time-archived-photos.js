@@ -104,7 +104,11 @@ export const RetrieveArchivedPhotos = async ({
       platform,
       isArchived: true,
       shareLink: { $exists: true },
-      photosRetrieved: { $exists: false }
+      photosRetrieved: { $exists: false },
+      $or: [
+        { retryCount: { $exists: false } },
+        { retryCount: { $lt: 3 } }
+      ]
     }
   });
 
@@ -142,20 +146,48 @@ export const RetrieveArchivedPhotos = async ({
       const galleryProject = userProjects.find((project) => project[8]?.toString() === gallery.collectionId);
 
       console.log({ galleryProject });
-      if (galleryProject) {
-        const galleryIdentifier = galleryProject[6];
 
-        console.log({ galleryIdentifier });
-
-        await page.goto(`${baseUrl}/-${galleryIdentifier}/gallery`);
-
-        await handleCaptcha({ page });
-
-        await retrievePhotos({
-          filteredCookies,
-          galleryIdentifier,
-          baseUrl,
-          collectionId: gallery.collectionId
+      try {
+        if (galleryProject) {
+          const galleryIdentifier = galleryProject[6];
+  
+          console.log({ galleryIdentifier });
+  
+          await page.goto(`${baseUrl}/-${galleryIdentifier}/gallery`);
+  
+          await handleCaptcha({ page });
+  
+          await retrievePhotos({
+            filteredCookies,
+            galleryIdentifier,
+            baseUrl,
+            collectionId: gallery.collectionId
+          });
+        } else {
+          await UpdateGallery({
+            filterParams: {
+              collectionId: gallery.collectionId,
+              $or: [
+                { retryCount: { $exists: false } },
+                { retryCount: { $lt: 3 } }
+              ]
+            },
+            updateParams: {
+              retryCount: 1,
+              errorMessage: `Gallery Project doesn't exists on client's account`
+            }
+          });
+        }
+      } catch (err) {
+        console.log(`Error while Retrieving Photos for ${gallery.collectionId}`, err);
+        await UpdateGallery({
+          filterParams: {
+            collectionId: gallery.collectionId
+          },
+          updateParams: {
+            retryCount: 1,
+            errorMessage: err?.message || 'Unknown Reason'
+          }
         });
       }
       await sleep(15);
@@ -186,7 +218,7 @@ const checkIfPhotosAreReadyToDownload = async ({
   const { data: { d = {} } = {} } = response;
   const { status } = d;
 
-  console.log({ status });
+  console.log({ galleryIdentifier, status });
 
   return status === 20 ? true : false;
 }
@@ -195,13 +227,19 @@ export const DownloadRetrievedPhotos = async ({
   page
 }) => {
   try {
+    axios.defaults.httpsAgent = new https.Agent({ keepAlive: true });
+
     const galleries = await GetGalleries({
       filterParams: {
         userEmail,
         platform,
         isArchived: true,
         photosRetrieved: true,
-        isDownloaded: { $exists: false }
+        isDownloaded: { $exists: false },
+        $or: [
+          { retryCount: { $exists: false } },
+          { retryCount: { $lt: 3 } }
+        ]
       }
     });
 
@@ -246,100 +284,112 @@ export const DownloadRetrievedPhotos = async ({
 
         console.log({ arePhotosReady });
 
-        if (arePhotosReady) {
-          const downloadUrl = `${baseUrl}/-${galleryIdentifier}/download?mode=hireszip&userjobid=${userJobId}&photoid=&slideshowid=&disposition=&productid=&featuredvideoid=&highestcategorypossible=true&batchsize=1200&startindex=0`;
-          const downloadStreamResponse = await axios({
-            url: downloadUrl,
-            method: 'GET',
-            headers: {
-              cookie: filteredCookies
-            },
-            responseType: 'stream'
-          });
-
-          // const temporaryPath = path.join(process.cwd(), `${userEmail}/photos.zip`);
-          // const temporaryPath = path.join('D:', `${userEmail}/photos.zip`);
-
-          const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}.zip`);
-
-          const directory = path.dirname(directoryPath);
-        
-          if (!fs.existsSync(directory)) {
-              fs.mkdirSync(directory, { recursive: true });
-          }
+        try {
+          if (arePhotosReady) {
+            const downloadUrl = `${baseUrl}/-${galleryIdentifier}/download?mode=hireszip&userjobid=${userJobId}&photoid=&slideshowid=&disposition=&productid=&featuredvideoid=&highestcategorypossible=true&batchsize=1200&startindex=0`;
+            const downloadStreamResponse = await axios({
+              url: downloadUrl,
+              method: 'GET',
+              headers: {
+                cookie: filteredCookies
+              },
+              responseType: 'stream'
+            });
+  
+            // const directoryPath = path.join(process.cwd(), `${userEmail}/photos.zip`);
+            // const temporaryPath = path.join('D:', `${userEmail}/photos.zip`);
+  
+            const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}.zip`);
+  
+            const directory = path.dirname(directoryPath);
           
-
-          console.log('Starting download...');
-          await new Promise((resolve, reject) => {
-            const writer = fs.createWriteStream(directoryPath);
-            downloadStreamResponse.data.pipe(writer);
-
-            writer.on('finish', () => {
-              console.log('Finished writing file to', directoryPath);
-              resolve();
+            if (!fs.existsSync(directory)) {
+                fs.mkdirSync(directory, { recursive: true });
+            }
+  
+            console.log('Starting download...');
+            await new Promise((resolve, reject) => {
+              const writer = fs.createWriteStream(directoryPath);
+              downloadStreamResponse.data.pipe(writer);
+  
+              writer.on('finish', () => {
+                console.log('Finished writing file to', directoryPath);
+                resolve();
+              });
+  
+              writer.on('error', (err) => {
+                console.error('Error while writing the file:', err);
+                reject(err);
+              });
             });
-
-            writer.on('error', (err) => {
-              console.error('Error while writing the file:', err);
-              reject(err);
+  
+            // const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
+  
+            // // const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}`);
+            // if (!fs.existsSync(directoryPath)) {
+            //   fs.mkdirSync(directoryPath, { recursive: true });
+            // }
+  
+            // // Step 3: Extract the ZIP file
+            // console.log('Starting to extract the ZIP file...');
+            // await new Promise((resolve, reject) => {
+            //   fs.createReadStream(temporaryPath)
+            //     .pipe(unzipper.Extract({ path: directoryPath }))
+            //     .on('close', () => {
+            //       console.log('Extraction completed!');
+            //       resolve();
+            //     })
+            //     .on('error', (err) => {
+            //       console.error('Error while extracting the ZIP file:', err);
+            //       reject(err);
+            //     });
+            // });
+            // fs.unlinkSync(temporaryPath);
+  
+            // console.log(`Files extracted to: ${directoryPath}`);
+  
+            await UpdateGallery({
+              filterParams: {
+                collectionId
+              },
+              updateParams: {
+                isDownloaded: true
+              }
             });
-          });
-
-          // const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
-
-          // // const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}`);
-          // if (!fs.existsSync(directoryPath)) {
-          //   fs.mkdirSync(directoryPath, { recursive: true });
-          // }
-
-          // // Step 3: Extract the ZIP file
-          // console.log('Starting to extract the ZIP file...');
-          // await new Promise((resolve, reject) => {
-          //   fs.createReadStream(temporaryPath)
-          //     .pipe(unzipper.Extract({ path: directoryPath }))
-          //     .on('close', () => {
-          //       console.log('Extraction completed!');
-          //       resolve();
-          //     })
-          //     .on('error', (err) => {
-          //       console.error('Error while extracting the ZIP file:', err);
-          //       reject(err);
-          //     });
-          // });
-          // fs.unlinkSync(temporaryPath);
-
-          // console.log(`Files extracted to: ${directoryPath}`);
-
-          await UpdateGallery({
+  
+            await UpdateGallerySets({
+              filterParams: {
+                collectionId
+              },
+              updateParams: { isDownloaded: true }
+            });
+  
+            await UpdateGalleryPhotos({
+              filterParams: {
+                collectionId
+              },
+              updateParams: { isDownloaded: true }
+            })
+          } else {
+            console.log(`Photos are not yet Ready for ${galleryName}`);
+          }
+        } catch (err) {
+          console.log(`Error While Downloading Gallery ${collectionId}`, err);
+          await UpdateGallery ({
             filterParams: {
               collectionId
             },
             updateParams: {
-              isDownloaded: true
+              error: err?.message || 'Unknown Error',
+              retryCount: 1
             }
           });
-
-          await UpdateGallerySets({
-            filterParams: {
-              collectionId
-            },
-            updateParams: { isDownloaded: true }
-          });
-
-          await UpdateGalleryPhotos({
-            filterParams: {
-              collectionId
-            },
-            updateParams: { isDownloaded: true }
-          })
-        } else {
-          console.log(`Photos are not yet Ready for ${galleryName}`);
         }
         await sleep(15);
       }
     }
   } catch (err) {
-    console.log('Error in Download Pic-time Archived Photos!');
+    console.log('Error in Download Pic-time Archived Photos!', err);
     throw err;
   }
 };
