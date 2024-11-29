@@ -5,7 +5,7 @@ import pkg from 'lodash';
 import { UpdateScript } from '../../db-services/script.js';
 
 import GetClients from '../helpers/pixieset-helpers.js';
-import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, pixiesetLoginMethod } from '../helpers/common.js';
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, pixiesetLoginMethod, navigateWithRetry } from '../helpers/common.js';
 
 import DownloadPhotos from '../download-services/download-pixieset-photos.js'
 
@@ -67,7 +67,7 @@ console.log({
 
       await page.setViewport({ width: 1920, height: 1080 });
 
-      await page.goto('https://galleries.pixieset.com/collections', { timeout: 60000 });
+      await navigateWithRetry(page, 'https://galleries.pixieset.com/collections');
       await sleep(30);
 
       await page.reload();
@@ -80,7 +80,7 @@ console.log({
         });
       }
 
-      await page.goto('https://galleries.pixieset.com/collections', { timeout: 60000 });
+      await navigateWithRetry(page, 'https://galleries.pixieset.com/collections');
 
       await sleep(10);
 

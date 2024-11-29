@@ -5,7 +5,7 @@ import os from 'os';
 
 import { UpdateScript } from '../../db-services/script.js';
 
-import { sleep, parseProxyUrl, sendNotificationOnSlack, loginMethod } from '../helpers/common.js';
+import { sleep, parseProxyUrl, sendNotificationOnSlack, loginMethod, navigateWithRetry } from '../helpers/common.js';
 
 import { DownloadRetrievedPhotos, RetrieveArchivedPhotos } from '../download-services/download-pic-time-archived-photos.js';
 
@@ -63,7 +63,7 @@ const PicTimeArchivedGalleries = async () => {
       console.log('Proxy Authenticated!');
       }
 
-      await page.goto('https://us.pic-time.com/account', { timeout: 60000 });
+      await navigateWithRetry(page, 'https://us.pic-time.com/account');
 
       if (page.url().includes('/login') || page.url().includes('!loginuser')) {
 

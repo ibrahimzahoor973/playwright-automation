@@ -1,11 +1,11 @@
-Pixieset Gallery Scraper
+Pass-Gallery Scraper
 
-This project processes photo information from Pixieset collections and generates CSV files containing Galleries, Clients and Gallery Photo Information.
+This project processes photo information from Pixieset and Pic-Time collections and generates CSV files containing Galleries, Clients and Gallery Photo Information.
 
 Project Structure
 .env: Contains email and username fields for authentication.
 
-src/pages/pixiset.js: Main script that logs in pixieset web app & processes the data and generates CSV files.
+src/pages/pixiset.js: Main script that logs into the platform specific web app & processes the data and generates CSV files.
 
 src/helpers.js: Helper functions to assist with processing.
 

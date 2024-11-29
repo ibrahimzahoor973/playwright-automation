@@ -5,7 +5,7 @@ import os from 'os';
 
 import { UpdateScript } from '../../db-services/script.js';
 
-import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, loginMethod } from '../helpers/common.js';
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, loginMethod, navigateWithRetry } from '../helpers/common.js';
 
 import { GetSetsAndPhotos, HandleOldGalleries } from '../helpers/pic-time-helpers.js';
 
@@ -69,7 +69,7 @@ import PicTimeArchivedGalleries from './pic-time-archived-galleries.js';
       console.log('Proxy Authenticated!');
       }
 
-      await page.goto('https://us.pic-time.com/professional#dash', { timeout: 60000 });
+      await navigateWithRetry(page, 'https://us.pic-time.com/professional#dash');
 
       if (page.url().includes('/login')) {
 
@@ -85,7 +85,7 @@ import PicTimeArchivedGalleries from './pic-time-archived-galleries.js';
 
       console.log({ baseUrl });
 
-      await page.goto(`${baseUrl}/professional#dash`);
+      await navigateWithRetry(page, `${baseUrl}/professional#dash`);
 
       console.log('Current Url', page.url());
 

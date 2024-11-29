@@ -22,7 +22,8 @@ const parseClientGalleries = ({
     galleryName: gallery[7] || '',
     numberOfPhotos: gallery[8] || 0,
     eventDate: gallery[6] || '',
-    createdDate: gallery[4] || null
+    createdDate: gallery[4] || null,
+    offline: gallery[0] === 15 ? true: false
   }));
 
   console.log({
@@ -304,7 +305,7 @@ const allowHighResDownloads = async ({
         ignoreDtoRevision: false
     }, pcpClientId: ''
       }
-    await axios({
+    const res = await axios({
       url: `${baseUrl}/!servicesp.asmx/savePackage`,
       method: 'POST',
       headers: {
@@ -312,6 +313,8 @@ const allowHighResDownloads = async ({
       },
       data: payload
     });
+
+    console.log('res of high res', res?.data);
   } catch (err) {
     console.log('Error in allowHighResDownloads:', err);
     throw err;
@@ -369,6 +372,8 @@ const addClientInGallery = async ({
       },
       data: payload
     });
+    console.log('res of adding client', response?.data);
+
   } catch (err) {
     console.log('Err while Adding Client', err);
     throw err;
@@ -400,6 +405,8 @@ const createShareLink = async ({
     const { data: { d = {} } = {} } = response;
 
     const { link } = d;
+
+    console.log('response of creating link', response?.data);
     return link;
   } catch (err) {
     console.log('Err while Creating Share Link', err);
@@ -473,7 +480,7 @@ export const HandleOldGalleries = async ({
             collectionId
           },
           updateParams: {
-            shareLink: shareLink || ''
+            shareLink
           }
         });
       } catch (err) {

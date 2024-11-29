@@ -1,6 +1,7 @@
 import unzipper from 'unzipper';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 
 import axios from '../../config/axios.js';
 
@@ -8,7 +9,7 @@ import { GetGalleries, UpdateGallery } from '../../db-services/gallery.js';
 import { UpdateGallerySets } from '../../db-services/gallery-set.js';
 import { UpdateGalleryPhotos } from '../../db-services/photo.js';
 
-import { getCookies, sleep } from '../helpers/common.js';
+import { getCookies, navigateWithRetry, sleep } from '../helpers/common.js';
 import { handleCaptcha } from '../helpers/pic-time-helpers.js';
 
 const {
@@ -117,7 +118,7 @@ export const RetrieveArchivedPhotos = async ({
 
     console.log({ baseUrl });
 
-    await page.goto(`${baseUrl}/account`);
+    await navigateWithRetry(page, `${baseUrl}/account`)
 
     const cookies = await page.cookies();
 
@@ -135,62 +136,91 @@ export const RetrieveArchivedPhotos = async ({
     const { data: { d = {} } = {} } = response;
     const userProjects = d.projects_s || [];
 
-    for (let i = 0; i < galleries.length; i += 1) {
-      const gallery = galleries[i];
+    console.log('userProjects', userProjects.length);
 
-      console.log({
-        collectionId: gallery.collectionId,
-        name: gallery.name
-      });
+    if (userProjects.length) {
+      for (let i = 0; i < galleries.length; i += 1) {
+        const gallery = galleries[i];
 
-      const galleryProject = userProjects.find((project) => project[8]?.toString() === gallery.collectionId);
+        console.log({
+          collectionId: gallery.collectionId,
+          name: gallery.name
+        });
 
-      console.log({ galleryProject });
+        const galleryProject = userProjects.find((project) => project[8]?.toString() === gallery.collectionId);
 
-      try {
-        if (galleryProject) {
-          const galleryIdentifier = galleryProject[6];
-  
-          console.log({ galleryIdentifier });
-  
-          await page.goto(`${baseUrl}/-${galleryIdentifier}/gallery`);
-  
-          await handleCaptcha({ page });
-  
-          await retrievePhotos({
-            filteredCookies,
-            galleryIdentifier,
-            baseUrl,
-            collectionId: gallery.collectionId
-          });
-        } else {
+        console.log({ galleryProject });
+
+        try {
+          if (galleryProject) {
+            const galleryIdentifier = galleryProject[6];
+    
+            console.log({ galleryIdentifier });
+    
+            await navigateWithRetry(page, `${baseUrl}/-${galleryIdentifier}/gallery`);
+    
+            await handleCaptcha({ page });
+    
+            await retrievePhotos({
+              filteredCookies,
+              galleryIdentifier,
+              baseUrl,
+              collectionId: gallery.collectionId
+            });
+          } else if (gallery.shareLink){
+            await navigateWithRetry(page, gallery.shareLink);
+            
+            await sleep(10);
+
+            const url = page.url();
+
+            const match = url.match(/\/([^\/]+)\/gallery/);
+            let galleryIdentifier;
+            if (match) {
+              galleryIdentifier = match[1]; 
+              galleryIdentifier = galleryIdentifier.replace(/^-/,'');
+              console.log(galleryIdentifier);
+            } else {
+              console.log("No match found");
+            }
+
+            await handleCaptcha({ page });
+    
+            await retrievePhotos({
+              filteredCookies,
+              galleryIdentifier,
+              baseUrl,
+              collectionId: gallery.collectionId
+            });
+          } else {
+            await UpdateGallery({
+              filterParams: {
+                collectionId: gallery.collectionId,
+                $or: [
+                  { retryCount: { $exists: false } },
+                  { retryCount: { $lt: 3 } }
+                ]
+              },
+              updateParams: {
+                retryCount: 1,
+                errorMessage: `Gallery Project doesn't exists on client's account`
+              }
+            });
+          }
+        } catch (err) {
+          console.log(`Error while Retrieving Photos for ${gallery.collectionId}`, err);
           await UpdateGallery({
             filterParams: {
-              collectionId: gallery.collectionId,
-              $or: [
-                { retryCount: { $exists: false } },
-                { retryCount: { $lt: 3 } }
-              ]
+              collectionId: gallery.collectionId
             },
             updateParams: {
               retryCount: 1,
-              errorMessage: `Gallery Project doesn't exists on client's account`
+              errorMessage: err?.message || 'Unknown Reason'
             }
           });
         }
-      } catch (err) {
-        console.log(`Error while Retrieving Photos for ${gallery.collectionId}`, err);
-        await UpdateGallery({
-          filterParams: {
-            collectionId: gallery.collectionId
-          },
-          updateParams: {
-            retryCount: 1,
-            errorMessage: err?.message || 'Unknown Reason'
-          }
-        });
+        await sleep(15);
       }
-      await sleep(15);
     }
   }
 };
@@ -259,7 +289,7 @@ export const DownloadRetrievedPhotos = async ({
 
         console.log({ collectionId, galleryName });
 
-        await page.goto(`${baseUrl}/-${galleryIdentifier}/gallery`);
+        await navigateWithRetry(page, `${baseUrl}/-${galleryIdentifier}/gallery`);
 
         const cookies = await page.cookies();
 

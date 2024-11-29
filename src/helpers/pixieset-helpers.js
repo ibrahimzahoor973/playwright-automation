@@ -6,6 +6,7 @@ import { SaveGalleries, UpdateGallery, GetGalleries as GetGalleriesFromDb } from
 import { SaveClients } from '../../db-services/client.js';
 import { GetGallerySets, SaveGallerySets, UpdateGallerySet } from '../../db-services/gallery-set.js';
 import { SaveGalleryPhotos } from '../../db-services/photo.js';
+import { navigateWithRetry } from './common.js';
 
 const { isEmpty } = pkg;
 
@@ -214,7 +215,7 @@ const GetClients = async ({ page, filteredCookies, userEmail }) => {
     for (let i = 0; i < collections.length; i += 1) {
       const collection = collections[i];
       console.log('Collection:', collection.collectionId);
-      await page.goto(`https://galleries.pixieset.com/collections/${collection.collectionId}`);
+      await navigateWithRetry(page, `https://galleries.pixieset.com/collections/${collection.collectionId}`);
       // api to get clients data for each collection
       const response = await axios({
         url: `https://galleries.pixieset.com/api/v1/collections/${collection.collectionId}/invite_history`,
@@ -352,7 +353,7 @@ export const GetGalleryPhotos = async ({
       collectionsInGetPhotos: collections.length
     })
 
-    await page.goto('https://galleries.pixieset.com/collections');
+    await navigateWithRetry(page, 'https://galleries.pixieset.com/collections');
 
     for (let i = 0; i < collections.length; i += 1) {
       const collection = collections[i];

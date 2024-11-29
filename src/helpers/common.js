@@ -79,7 +79,7 @@ export const loginMethod = async ({
   retries = 3
 }) => {
   try {
-    const emailSelector = await page.$('input[type=emails]');
+    const emailSelector = await page.$('input[type=email]');
 
     console.log({ emailSelector });
   
@@ -163,3 +163,28 @@ export const pixiesetLoginMethod = async ({
     } else throw new Error('LOGIN FAILED!');
   }
 };
+
+export const navigateWithRetry = async (page, url) => {
+  const MAX_TIMEOUT = 5 * 60 * 1000; 
+  let currentTimeout = 30000;
+
+  while (currentTimeout <= MAX_TIMEOUT) {
+    try {
+      console.log(`Attempting navigation with timeout: ${currentTimeout / 1000}s`);
+      await page.goto(url, { timeout: currentTimeout });
+      console.log('Navigation successful!');
+      return;
+    } catch (error) {
+      console.log({ error })
+      if (error?.message?.toLowerCase().includes('navigation timeout')) {
+        console.log(`Navigation timeout after ${currentTimeout / 1000}s. Retrying...`);
+        currentTimeout *= 2;
+      } else {
+        console.error('An UNexpected error occurred:', error);
+        throw error;
+      }
+    }
+  }
+
+  throw new Error(`Failed to navigate to ${url} after reaching max timeout of ${MAX_TIMEOUT / 1000}s`);
+}
