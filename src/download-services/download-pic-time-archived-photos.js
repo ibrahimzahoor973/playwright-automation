@@ -329,7 +329,7 @@ export const DownloadRetrievedPhotos = async ({
             // const directoryPath = path.join(process.cwd(), `${userEmail}/photos.zip`);
             // const temporaryPath = path.join('D:', `${userEmail}/photos.zip`);
   
-            const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}.zip`);
+            const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}.zip`);
   
             const directory = path.dirname(directoryPath);
           

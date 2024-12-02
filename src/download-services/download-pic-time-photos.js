@@ -113,7 +113,7 @@ const DownloadSetPhotos = async ({
     const zipFolder = new AdmZip(res?.data);
 
     // const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
-    const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}`);
+    const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}`);
 
     console.log({ directoryPath });
 
