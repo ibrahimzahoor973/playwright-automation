@@ -53,7 +53,7 @@ const SaveGalleryPhotos = async ({
         displayLarge
       };
   
-      if (platform === PLATFORMS.PIC_TIME) {
+      if (platform === PLATFORMS.PIC_TIME || platform === PLATFORMS.SHOOTPROOF) {
         setObj = {
           galleryName,
           setName: sceneName,
@@ -109,9 +109,7 @@ const UpdateGalleryPhotos = async ({
 }) => {
   await Photo.updateMany({
     ...filterParams
-  }, {
-    ...updateParams
-  });
+  }, updateParams);
 };
 
 

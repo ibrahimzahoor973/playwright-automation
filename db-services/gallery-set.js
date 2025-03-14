@@ -16,6 +16,7 @@ const SaveGallerySets = async ({
   let setId;
   let numberOfPhotos;
   let name;
+  let subsetIds;
 
   const gallerySetsChunks = chunk(gallerySetsData, 200);
 
@@ -48,6 +49,19 @@ const SaveGallerySets = async ({
         collectionId = galleryId;
         setId = sceneId;
         name = setName
+      } else if (platform === PLATFORMS.SHOOTPROOF) {
+        const {
+          photoCount,
+          collectionId: galleryId,
+          setId: id,
+          subAlbumIds,
+          name: setName
+        } = set;
+        collectionId = galleryId;
+        setId = id;
+        numberOfPhotos = photoCount;
+        name = setName;
+        subsetIds = subAlbumIds;
       }
   
       return {
@@ -62,7 +76,8 @@ const SaveGallerySets = async ({
               galleryName,
               numberOfPhotos,
               name,
-              platform
+              platform,
+              subsetIds
             }
           },
           upsert: true

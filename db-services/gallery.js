@@ -25,7 +25,10 @@ const SaveGalleries = async ({
         galleryName: name,
         numberOfPhotos,
         categories: eventCategory,
-        coverPhoto
+        coverPhoto,
+        storageId,
+        coverPhotoUrl,
+        externalProjRef
       } = gallery;
   
       return {
@@ -43,7 +46,10 @@ const SaveGalleries = async ({
               eventCategory,
               coverPhoto,
               platform,
-              baseUrl
+              baseUrl,
+              storageId,
+              coverPhotoUrl,
+              externalProjRef
             }
           },
           upsert: true

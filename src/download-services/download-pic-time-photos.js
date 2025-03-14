@@ -112,8 +112,8 @@ const DownloadSetPhotos = async ({
     // unzipping the folder
     const zipFolder = new AdmZip(res?.data);
 
-    // const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
-    const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}`);
+    const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
+    // const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}`);
 
     console.log({ directoryPath });
 
@@ -124,6 +124,8 @@ const DownloadSetPhotos = async ({
     zipFolder.extractAllTo(directoryPath, true);
 
     console.log('File downloaded and extracted from zip & saved successfully!');
+
+    return { directoryPath };
   } catch (err) {
     console.log('Error in Download Photos Method', err);
 
@@ -222,10 +224,11 @@ const DownloadPhotos = async ({
           const photoIds = photosData.map((photo) => photo.photoId);
 
           console.log({ photoIds: photoIds.length })
+          let folderPath;
 
           if (photosData.length) {
             try {
-              await DownloadSetPhotos({
+              const { directoryPath } = await DownloadSetPhotos({
                 baseUrl,
                 collectionId: gallery.collectionId,
                 photoIds,
@@ -234,13 +237,19 @@ const DownloadPhotos = async ({
                 filteredCookies,
                 userEmail
               });
+              folderPath = directoryPath;
   
               await UpdateGalleryPhotos({
                 filterParams: {
                   userEmail,
-                  photoId: { $in: photoIds }
+                  photoId: { $in: photoIds },
                 },
-                updateParams: { isDownloaded: true }
+                updateParams: [{
+                  $set: {
+                    isDownloaded: true,
+                    filePath: { $concat: [directoryPath, '/', set.name, '/', '$name']}
+                  }
+                 }]
               });
             } catch (err) {
               console.log('Error while downloading Photos', err);
@@ -264,7 +273,10 @@ const DownloadPhotos = async ({
                 userEmail,
                 setId: set.setId
               },
-              updateParams: { isDownloaded: true }
+              updateParams: {
+                isDownloaded: true,
+                directoryPath: folderPath
+              }
             });
 
             console.log('All photos downloaded for Set', set.setId);

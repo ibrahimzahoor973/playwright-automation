@@ -5,7 +5,8 @@ import axios from '../../config/axios.js';
 import { GetGalleries as GetGalleriesFromDb, SaveGalleries, UpdateGalleries, UpdateGallery } from '../../db-services/gallery.js';
 import { SaveGallerySets, UpdateGallerySets } from '../../db-services/gallery-set.js';
 import { SaveGalleryPhotos } from '../../db-services/photo.js';
-import { sleep } from './common.js';
+import { generateGUID, sleep } from './common.js';
+import { SaveClients } from '../../db-services/client.js';
 
 const {
   userEmail,
@@ -14,17 +15,63 @@ const {
   clientEmail
 } = process.env;
 
-const parseClientGalleries = ({
-  galleriesData
+const getStorageMapping = async ({
+  filteredCookies,
+  baseUrl
 }) => {
-  const galleries = galleriesData.map((gallery) => ({
-    collectionId: gallery[9] || '',
+  const response = await axios({
+    url: `${baseUrl}/professional`,
+    method: 'GET',
+    headers: {
+      cookie: filteredCookies,
+      "Content-Type": 'application/json'
+    }
+  });
+
+  const content = response.data || {};
+  const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  let storageMapping = [];
+
+  while ((match = scriptRegex.exec(content)) !== null) {
+    const scriptContent = match[1];
+    const tokenMatch = scriptContent.match(/_pictimeStorageMapping\s*=\s*(\[[\s\S]*?\]);/);
+    if (tokenMatch) {
+      console.log('Extracted _pictimeStorageMapping:', tokenMatch[1]);
+      storageMapping = tokenMatch[1];
+      return JSON.parse(storageMapping);
+    }
+  }
+};
+
+const parseClientGalleries = ({
+  galleriesData,
+  storageMapping
+}) => {
+  const galleries = galleriesData.map((gallery) => {
+    const collectionId =  String(gallery[9]) || '';
+    const coverPhoto = gallery[10];
+    const storageId = gallery[19];
+    const storageFound = storageMapping.find(data => data.storageId === storageId);
+    const guid = generateGUID();
+
+    console.log({
+      collectionId
+    })
+
+    return {
+    collectionId,
     galleryName: gallery[7] || '',
     numberOfPhotos: gallery[8] || 0,
     eventDate: gallery[6] || '',
     createdDate: gallery[4] || null,
-    offline: gallery[0] === 15 ? true: false
-  }));
+    offline: gallery[0] === 15 ? true : false,
+    storageId,
+    coverPhoto,
+    coverPhotoUrl: `${storageFound.cdnDomain}/pictures/${Number(collectionId.substr(0, 2))}/${Number(collectionId.substr(2, 3))}/${collectionId}/homepage/smallres/${coverPhoto}`,
+    externalProjRef: guid
+  }
+  });
 
   console.log({
     galleries
@@ -77,6 +124,20 @@ const parseGalleryPhotos = ({
   return galleryPhotos;
 };
 
+const parseGalleryClients = ({
+  clientUsers,
+  collectionId,
+  galleryName
+}) => {
+  const clients = clientUsers.map((gallery) => ({
+    clientEmail: gallery[0] || '',
+    clientName: gallery[1] || '',
+    collectionId,
+    galleryName
+  }));
+
+  return clients;
+};
 
 export const GetGalleries = async ({
   baseUrl,
@@ -94,10 +155,18 @@ export const GetGalleries = async ({
   const { data: { d = {} } = {} } = response;
   const galleriesData = d.projects_s || [];
 
-  const galleries = parseClientGalleries({ galleriesData });
+  const storageMapping = await getStorageMapping({
+    filteredCookies,
+    baseUrl
+  });
+
+  console.log({
+    storageMapping
+  })
+
+  const galleries = parseClientGalleries({ galleriesData, storageMapping });
 
   const oldGalleries = galleries.filter((gallery) => moment(gallery.createdDate).add(1, 'year').isBefore(moment()));
-
 
   console.log('galleries:', galleries.length);
 
@@ -136,6 +205,69 @@ export const GetGalleries = async ({
   });
 };
 
+const syncClients = async ({
+  filteredCookies,
+  baseUrl
+}) => {
+  const galleries = await GetGalleriesFromDb({
+    filterParams: {
+      userEmail,
+      platform,
+      clientsSynced: { $exists: false }
+    }
+  });
+
+  console.log({ galleriesWithClientsNotSynced: galleries.length });
+
+  for (let i = 0; i < galleries.length; i += 1) {
+    const gallery = galleries[i];
+    try {
+      const response = await axios({
+        url: `${baseUrl}/!servicesp.asmx/loadProject`,
+        method: 'POST',
+        headers: {
+          cookie: filteredCookies,
+          "Content-Type": 'application/json'
+        },
+        data: {
+          projectId: gallery.collectionId
+        }
+      });
+
+      const { data: { d = {} } = {} } = response;
+
+      const clientUsers = d.clientUsers_s || [];
+
+      const clients = parseGalleryClients({
+        clientUsers,
+        collectionId: gallery.collectionId,
+        galleryName: gallery.name
+      });
+
+
+      if (clients.length) {
+        await SaveClients({
+          clients,
+          userEmail,
+          platform
+        });
+      }
+
+      await UpdateGallery({
+        filterParams: {
+          userEmail,
+          collectionId: gallery.collectionId
+        },
+        updateParams: {
+          clientsSynced: true
+        }
+      });
+    } catch (err) {
+      console.log(`Error while syncing Clients of ${gallery.collectionId}`);
+    }
+  }
+};
+
 export const GetSetsAndPhotos = async ({
   baseUrl,
   filteredCookies
@@ -149,13 +281,18 @@ export const GetSetsAndPhotos = async ({
       },
       limit: 1
     });
-  
+
     if (!gallery) {
-     await GetGalleries({
-      baseUrl,
-      filteredCookies
+      await GetGalleries({
+        baseUrl,
+        filteredCookies
       });
     }
+
+    await syncClients({
+      filteredCookies,
+      baseUrl
+    });
 
     const galleries = await GetGalleriesFromDb({
       filterParams: {
@@ -163,11 +300,11 @@ export const GetSetsAndPhotos = async ({
         platform,
         gallerySetsSynced: { $exists: false }
       }
-    }); 
-  
+    });
+
     for (let i = 0; i < galleries.length; i += 1) {
       const gallery = galleries[i];
-  
+
       const response = await axios({
         url: `${baseUrl}/!servicesp.asmx/projectPhotos2`,
         method: 'POST',
@@ -180,17 +317,17 @@ export const GetSetsAndPhotos = async ({
           photoIds: null
         }
       });
-  
+
       const { data: { d = {} } = {} } = response;
 
       const setsData = d.scenes_s || [];
       const photosData = d.photos_s || [];
-    
+
       const gallerySets = parseGallerySets({
         setsData,
         galleryId: gallery.collectionId
       });
-    
+
       if (gallerySets.length) {
         await SaveGallerySets({
           gallerySets,
@@ -199,41 +336,41 @@ export const GetSetsAndPhotos = async ({
           platform
         });
       }
-  
-    const galleryPhotos = await parseGalleryPhotos({
-      photosData,
-      setsData: gallerySets,
-      collectionId: gallery.collectionId,
-      galleryName: gallery.name
-    });
-  
-    await SaveGalleryPhotos({
-      photos: galleryPhotos,
-      userEmail,
-      platform
-    });
 
-    await UpdateGallery({
-      filterParams: {
-        userEmail,
-        collectionId: gallery.collectionId
-      },
-      updateParams: {
-        gallerySetsSynced: true,
-        photosSynced: true
-      }
-    });
+      const galleryPhotos = await parseGalleryPhotos({
+        photosData,
+        setsData: gallerySets,
+        collectionId: gallery.collectionId,
+        galleryName: gallery.name
+      });
 
-    await UpdateGallerySets({
-      filterParams: {
+      await SaveGalleryPhotos({
+        photos: galleryPhotos,
         userEmail,
-        collectionId: gallery.collectionId
-      },
-      updateParams: {
-        photosSynced: true
-      }
-    });
-  }
+        platform
+      });
+
+      await UpdateGallery({
+        filterParams: {
+          userEmail,
+          collectionId: gallery.collectionId
+        },
+        updateParams: {
+          gallerySetsSynced: true,
+          photosSynced: true
+        }
+      });
+
+      await UpdateGallerySets({
+        filterParams: {
+          userEmail,
+          collectionId: gallery.collectionId
+        },
+        updateParams: {
+          photosSynced: true
+        }
+      });
+    }
   } catch (err) {
     console.log('Error in GetSetsAndPhotos ', err);
     throw err;
@@ -268,23 +405,23 @@ const allowHighResDownloads = async ({
     const payload = {
       saveBatch: {
         projectCreate: {
-            newProjectIds: [],
-            newSceneIds: [],
-            newSelectionIds: []
+          newProjectIds: [],
+          newSceneIds: [],
+          newSelectionIds: []
         },
         projectProps: [{
-            projectId,
-            downloadPolicy: {
-                freeDownloadsCount: 0,
-                allowStore: 0,
-                boundHeight: 2000,
-                boundWidth: 2000,
-                hiresSampling: 0,
-                hiresScope: 1,
-                lowresSampling: 0,
-                lowresScope: 100,
-                sceneIds: null
-            }
+          projectId,
+          downloadPolicy: {
+            freeDownloadsCount: 0,
+            allowStore: 0,
+            boundHeight: 2000,
+            boundWidth: 2000,
+            hiresSampling: 0,
+            hiresScope: 1,
+            lowresSampling: 0,
+            lowresScope: 100,
+            sceneIds: null
+          }
         }],
         artPricing: [],
         projectSelectionProps: [],
@@ -297,14 +434,14 @@ const allowHighResDownloads = async ({
         setupBrand: [],
         setupAccount: [],
         actions: {
-            publish: [],
-            sceneReorder: [],
-            photosReorder: []
+          publish: [],
+          sceneReorder: [],
+          photosReorder: []
         },
         dtoRevision: 39,
         ignoreDtoRevision: false
-    }, pcpClientId: ''
-      }
+      }, pcpClientId: ''
+    }
     const res = await axios({
       url: `${baseUrl}/!servicesp.asmx/savePackage`,
       method: 'POST',
@@ -328,38 +465,38 @@ const addClientInGallery = async ({
 }) => {
   try {
     const payload = {
-        saveBatch: {
-            projectCreate: {
-                newProjectIds: [],
-                newSceneIds: [],
-                newSelectionIds: []
-            },
-            projectProps: [{
-                projectId: collectionId,
-                clientUsers: [{
-                    name: clientName,
-                    email: clientEmail
-                }]
-            }],
-            artPricing: [],
-            projectSelectionProps: [],
-            projectScenesProps: [],
-            projectSelections: [],
-            campaignsUpdate: [],
-            projectExport: [],
-            projectComments: [],
-            setupPricing: [],
-            setupBrand: [],
-            setupAccount: [],
-            actions: {
-                publish: [],
-                sceneReorder: [],
-                photosReorder: []
-            },
-            dtoRevision: 346,
-            ignoreDtoRevision: false
+      saveBatch: {
+        projectCreate: {
+          newProjectIds: [],
+          newSceneIds: [],
+          newSelectionIds: []
         },
-        pcpClientId: ''
+        projectProps: [{
+          projectId: collectionId,
+          clientUsers: [{
+            name: clientName,
+            email: clientEmail
+          }]
+        }],
+        artPricing: [],
+        projectSelectionProps: [],
+        projectScenesProps: [],
+        projectSelections: [],
+        campaignsUpdate: [],
+        projectExport: [],
+        projectComments: [],
+        setupPricing: [],
+        setupBrand: [],
+        setupAccount: [],
+        actions: {
+          publish: [],
+          sceneReorder: [],
+          photosReorder: []
+        },
+        dtoRevision: 346,
+        ignoreDtoRevision: false
+      },
+      pcpClientId: ''
     };
 
     const response = await axios({
@@ -435,67 +572,67 @@ export const HandleOldGalleries = async ({
   })
 
   for (let i = 0; i < galleries.length; i += 1) {
-      const gallery = galleries[i];
-      const { collectionId, name } = gallery;
+    const gallery = galleries[i];
+    const { collectionId, name } = gallery;
+
+    console.log({
+      collectionId,
+      name
+    });
+
+    // Update settings & allow High-res photo downloads for the gallery
+    try {
+      await allowHighResDownloads({
+        baseUrl,
+        projectId: collectionId,
+        filteredCookies
+      });
+
+      console.log('High-Res Downloads Allowed!');
+
+      // Add client in gallery
+      await addClientInGallery({
+        baseUrl,
+        filteredCookies,
+        collectionId
+      });
+
+      console.log('Client Added In Gallery!');
+
+      // create shareLink to share with Client
+      const shareLink = await createShareLink({
+        baseUrl,
+        filteredCookies,
+        collectionId
+      });
 
       console.log({
-        collectionId,
-        name
+        shareLink
       });
-  
-      // Update settings & allow High-res photo downloads for the gallery
-      try {
-        await allowHighResDownloads({
-          baseUrl,
-          projectId: collectionId,
-          filteredCookies
-        });
-    
-        console.log('High-Res Downloads Allowed!');
-    
-        // Add client in gallery
-        await addClientInGallery({
-          baseUrl,
-          filteredCookies,
-          collectionId
-        });
-    
-        console.log('Client Added In Gallery!');
-    
-        // create shareLink to share with Client
-        const shareLink = await createShareLink({
-          baseUrl,
-          filteredCookies,
-          collectionId
-        });
-    
-        console.log({
-          shareLink
-        });
-    
-        console.log('Link Generated!');
-    
-        await UpdateGallery({
-          filterParams: {
-            collectionId
-          },
-          updateParams: {
-            shareLink
-          }
-        });
-      } catch (err) {
-        console.log(`Error in Handle Old Galleries for ${collectionId}`, err);
-        await UpdateGallery({
-          filterParams: {
-            collectionId
-          },
-          updateParams: {
-            retryCount: 1
-          }
-        });
-      }
 
-  await sleep(30);
+      console.log('Link Generated!');
+
+      await UpdateGallery({
+        filterParams: {
+          collectionId
+        },
+        updateParams: {
+          shareLink
+        }
+      });
+    } catch (err) {
+      console.log(`Error in Handle Old Galleries for ${collectionId}`, err);
+      await UpdateGallery({
+        filterParams: {
+          collectionId
+        },
+        updateParams: {
+          retryCount: 1
+        }
+      });
+    }
+
+    await sleep(30);
   }
 };
 

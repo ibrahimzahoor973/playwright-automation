@@ -1,3 +1,4 @@
+import './account.js';
 import './client.js';
 import './gallery.js';
 import './gallery-set.js';

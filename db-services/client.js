@@ -6,7 +6,8 @@ const { chunk } = pkg;
 
 const SaveClients = async ({
   clients: clientsData,
-  userEmail
+  userEmail,
+  platform
 }) => {
   const clientChunks = chunk(clientsData, 200);
 
@@ -33,7 +34,8 @@ const SaveClients = async ({
           update: {
             $set : {
               galleryName,
-              name
+              name,
+              platform
             }
           },
           upsert: true
@@ -47,7 +49,18 @@ const SaveClients = async ({
   }
 };
 
+const GetClients = async ({
+  filterParams,
+  limit,
+  sort
+}) => {
+  const clients = await Client.find(filterParams).limit(limit).sort(sort);
+
+  return clients;
+};
+
 export {
-  SaveClients
+  SaveClients,
+  GetClients
 };
 

@@ -6,7 +6,7 @@ import { SaveGalleries, UpdateGallery, GetGalleries as GetGalleriesFromDb } from
 import { SaveClients } from '../../db-services/client.js';
 import { GetGallerySets, SaveGallerySets, UpdateGallerySet } from '../../db-services/gallery-set.js';
 import { SaveGalleryPhotos } from '../../db-services/photo.js';
-import { navigateWithRetry } from './common.js';
+import { generateGUID, navigateWithRetry } from './common.js';
 
 const { isEmpty } = pkg;
 
@@ -31,13 +31,15 @@ const getGalleryCollections = async ({
     });
 
     // create data with required fields
+    const guid  = generateGUID();
     galleryCollections.push({
       collectionId: collection.id,
       eventDate: collection.event_date,
       galleryName: collection.name,
       numberOfPhotos: collection.photo_count,
       coverPhoto: `${collection.coverPhoto ? 'https:' + collection.coverPhoto : ''}`,
-      categories: `${tagResponse.data?.distinctTags?.join(',') || ''}`
+      categories: `${tagResponse.data?.distinctTags?.join(',') || ''}`,
+      externalProjRef: guid
     });
   }
 

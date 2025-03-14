@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-import { SLACK_CHANNEL } from '../../constants.js';
+import { SLACK_CHANNEL, PASS_MIGRATIONS_CHANNEL } from '../../constants.js';
 
-const { userEmail, platform } = process.env;
+const { userEmail, platform, NODE_ENV  } = process.env;
 
 export const sleep = (secs = 1) => new Promise((resolve) => {
   setTimeout(resolve, secs * 1000);
@@ -25,6 +25,14 @@ export const parseProxyUrl = (url) => {
   }
 };
 
+export const generateGUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export const getCookies = ({ cookies }) => {
   let cookieMerge = '';
   const cookieList = [];
@@ -44,6 +52,10 @@ export const sendNotificationOnSlack = async ({
   task
 }) => {
   try {
+    let url = SLACK_CHANNEL;
+    if (NODE_ENV === 'production') {
+      url = PASS_MIGRATIONS_CHANNEL;
+    }
     console.log('error message', errorMessage);
     const maxLength = 3000;
     const truncatedMessage =
@@ -62,7 +74,7 @@ export const sendNotificationOnSlack = async ({
         Error: ${truncatedMessage}
       `;
   
-    await axios.post(SLACK_CHANNEL, {
+    await axios.post(url, {
       text: body
     });
   
@@ -123,6 +135,123 @@ export const loginMethod = async ({
   }
 };
 
+export const loginCsTool = async ({
+  page,
+  email,
+  password,
+  retries = 3
+}) => {
+  try {
+    await sleep(30);
+    const emailSelector = await page.$('input[type=email]', { visible: true });
+
+    console.log({ emailSelector });
+
+    const emailText = await emailSelector.evaluate(el => el.textContent);
+    console.log({ emailText });
+  
+    await emailSelector.click();
+    await emailSelector.click({ clickCount: 3 });
+    await emailSelector.press('Backspace');
+  
+    await emailSelector.type(email, { delay: 300 });
+    await sleep(10);
+  
+    const continueButton1 = await page.$('::-p-xpath(//button[@type="submit"])');
+    console.log({ continueButton1 });
+  
+    const continueButton = await page.$('button[type=submit]')
+  
+    await continueButton.click();
+    await sleep(10);
+    const passwordSelector = await page.$('input[type=password]');
+    await passwordSelector.type(password, { delay: 300 });
+  
+    await sleep(10);
+  
+    const loginButton = await page.$('::-p-xpath(//button[text()="Login"])')
+    await loginButton.click();
+  
+    await sleep(30);
+  
+    console.log('button clicked')
+    await sleep(10);
+  } catch (err) {
+    console.log('Error in loginMethod', err);
+    if (retries > 0) {
+      await page.reload();
+      await loginMethod({
+        page,
+        email,
+        password,
+        retries: retries - 1
+      });
+    } else throw new Error('LOGIN FAILED!');
+  }
+};
+
+export const loginToShootProof = async ({
+  page,
+  email,
+  password,
+  retries = 3
+}) => {
+  try {
+    console.log({
+      email,
+      password
+    })
+    const emailSelector = await page.$('#email');
+
+    console.log({ emailSelector });
+  
+    await emailSelector.click();
+    await emailSelector.click({ clickCount: 3 });
+    await emailSelector.press('Backspace');
+  
+    await emailSelector.type(email, { delay: 300 });
+    await sleep(10);
+  
+    const passwordSelector = await page.$('#password');
+    await passwordSelector.type(password, { delay: 300 });
+    console.log({
+      passwordSelector
+    });
+  
+    await sleep(10);
+
+    const loginButton = await page.$('input[type=submit]')
+  
+    await loginButton.click();
+  
+    await sleep(30);
+  
+    console.log('button clicked')
+    await sleep(10);
+  } catch (err) {
+    console.log('Error in loginMethod', err);
+    if (retries > 0) {
+      await page.reload();
+      await loginToShootProof({
+        page,
+        email,
+        password,
+        retries: retries - 1
+      });
+    } else throw new Error('LOGIN FAILED!');
+  }
+};
+
+export const encryptPassword = (password) => {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(HASHING_ALGORITHM, SECRET_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(password), cipher.final()]);
+  return {
+    iv: iv.toString('hex'),
+    content: encrypted.toString('hex')
+  };
+};
+
 export const pixiesetLoginMethod = async ({
   page,
   email,
@@ -147,9 +276,7 @@ export const pixiesetLoginMethod = async ({
     const loginButton = await page.$('#login-button');
     console.log({ loginButton });
 
-    loginButton.click();
-
-    await sleep(10);
+    await loginButton.click();
   } catch (err) {
     console.log('Error in pixiesetLoginMethod', err);
     if (retries > 0) {

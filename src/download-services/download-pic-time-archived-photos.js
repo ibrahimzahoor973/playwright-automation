@@ -1,4 +1,5 @@
-import unzipper from 'unzipper';
+import yauzl from 'yauzl';
+import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -11,6 +12,7 @@ import { UpdateGalleryPhotos } from '../../db-services/photo.js';
 
 import { getCookies, navigateWithRetry, sleep } from '../helpers/common.js';
 import { handleCaptcha } from '../helpers/pic-time-helpers.js';
+
 
 const {
   userEmail,
@@ -326,10 +328,10 @@ export const DownloadRetrievedPhotos = async ({
               responseType: 'stream'
             });
   
-            // const directoryPath = path.join(process.cwd(), `${userEmail}/photos.zip`);
+            const directoryPath = path.join(process.cwd(), `${userEmail}/${galleryName}-${collectionId}.zip`);
             // const temporaryPath = path.join('D:', `${userEmail}/photos.zip`);
   
-            const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}.zip`);
+            // const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}.zip`);
   
             const directory = path.dirname(directoryPath);
           
@@ -352,38 +354,59 @@ export const DownloadRetrievedPhotos = async ({
                 reject(err);
               });
             });
-  
-            // const directoryPath = path.join(process.cwd(), `Pic-Time/${userEmail}/${galleryName}`);
-  
-            // // const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}`);
-            // if (!fs.existsSync(directoryPath)) {
-            //   fs.mkdirSync(directoryPath, { recursive: true });
-            // }
-  
-            // // Step 3: Extract the ZIP file
-            // console.log('Starting to extract the ZIP file...');
-            // await new Promise((resolve, reject) => {
-            //   fs.createReadStream(temporaryPath)
-            //     .pipe(unzipper.Extract({ path: directoryPath }))
-            //     .on('close', () => {
-            //       console.log('Extraction completed!');
-            //       resolve();
-            //     })
-            //     .on('error', (err) => {
-            //       console.error('Error while extracting the ZIP file:', err);
-            //       reject(err);
-            //     });
-            // });
-            // fs.unlinkSync(temporaryPath);
-  
-            // console.log(`Files extracted to: ${directoryPath}`);
+
+
+            const extractPath = path.join(process.cwd(), `${userEmail}/${galleryName}-${collectionId}`);
+
+            // const extractPath = path.join('D:', `${userEmail}/${galleryName}-${collectionId}`);
+
+            yauzl.open(directoryPath, { lazyEntries: true }, (err, zipfile) => {
+              if (err) throw err;
+            
+              zipfile.on("entry", (entry) => {
+                const entryPath = path.join(extractPath, entry.fileName);
+            
+                // Ensure the directory exists before writing the file
+                const dirPath = path.dirname(entryPath);
+                fs.promises.mkdir(dirPath, { recursive: true })
+                  .then(() => {
+                    // Open the entry for reading
+                    zipfile.openReadStream(entry, (err, readStream) => {
+                      if (err) throw err;
+            
+                      // Create a write stream to the destination path
+                      const writeStream = fs.createWriteStream(entryPath);
+            
+                      // Pipe the read stream to the write stream to extract the file
+                      readStream.pipe(writeStream);
+            
+                      writeStream.on("close", () => {
+                        console.log(`Extracted: ${entry.fileName}`);
+                        zipfile.readEntry();  // This reads the next entry
+                      });
+                    });
+                  })
+                  .catch((mkdirError) => {
+                    console.error("Error creating directories:", mkdirError);
+                  });
+              });
+            
+              zipfile.on("end", () => {
+                console.log("All files extracted!");
+
+                fs.unlink(directoryPath, () => console.log('File Deleted'));
+              });
+            
+              zipfile.readEntry();
+            });
   
             await UpdateGallery({
               filterParams: {
                 collectionId
               },
               updateParams: {
-                isDownloaded: true
+                isDownloaded: true,
+                directoryPath
               }
             });
   
@@ -398,7 +421,12 @@ export const DownloadRetrievedPhotos = async ({
               filterParams: {
                 collectionId
               },
-              updateParams: { isDownloaded: true }
+              updateParams: [{
+                $set: {
+                isDownloaded: true,
+                filePath: extractPath
+                }
+              }]
             })
           } else {
             console.log(`Photos are not yet Ready for ${galleryName}`);

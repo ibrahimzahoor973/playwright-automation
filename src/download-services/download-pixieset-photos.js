@@ -37,8 +37,8 @@ const DownloadPhoto = async ({
       },
       responseType: 'stream'
     }).then((streamResponse) => {
-      // const filePath = path.join(process.cwd(), `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
-      const filePath = path.join('D:', `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
+      const filePath = path.join(process.cwd(), `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
+      // const filePath = path.join('D:', `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
       console.log({ filePath });
 
       // Check if the directory exists and create it if it doesn't
@@ -54,7 +54,7 @@ const DownloadPhoto = async ({
       streamResponse.data.pipe(writer)
         .on('finish', async () => {
           console.log('File downloaded successfully', photoId);
-          resolve({ success: true, photo });
+          resolve({ success: true, photo, filePath });
         })
         .on('error', (err) => {
           console.error('Error writing file:', err);
@@ -140,7 +140,7 @@ const DownloadPhotos = async ({
           for (let k = 0; k < photosData.length; k += 1) {
             const photo = photosData[k];
             try {
-              await DownloadPhoto({
+              const { filePath } = await DownloadPhoto({
                 filteredCookies,
                 photo,
                 index: k,
@@ -151,7 +151,10 @@ const DownloadPhotos = async ({
                 userEmail,
                 photoId: photo.photoId
               },
-              updateParams: { isDownloaded: true } });
+              updateParams: {
+                isDownloaded: true,
+                filePath
+              } });
             } catch (err) {
               console.log('Error while downloading Photo', photo.photoId);
               await UpdateGalleryPhoto({ filterParams: {
