@@ -135,8 +135,7 @@ import DownloadShootProofPhotos from '../download-services/download-shootproof-p
       await UpdateScript({
         filterParams: {
           userEmail,
-          platform,
-          scriptPath
+          platform
         },
         updateParams: {
           running: false,
@@ -150,8 +149,7 @@ import DownloadShootProofPhotos from '../download-services/download-shootproof-p
     await UpdateScript({
       filterParams: {
         userEmail,
-        platform,
-        scriptPath
+        platform
       },
       updateParams: {
         running: false,

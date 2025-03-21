@@ -88,8 +88,7 @@ const PicTimeArchivedGalleries = async () => {
       await UpdateScript({
         filterParams: {
           userEmail,
-          platform,
-          scriptPath
+          platform
         },
         updateParams: {
           running: false,
@@ -106,8 +105,7 @@ const PicTimeArchivedGalleries = async () => {
     await UpdateScript({
       filterParams: {
         userEmail,
-        platform,
-        scriptPath
+        platform
       },
       updateParams: {
         running: false,

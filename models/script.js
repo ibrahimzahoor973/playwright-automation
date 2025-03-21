@@ -12,6 +12,6 @@ const schema = new Schema({
   strict: false
 });
 
-const Script = model('Script', schema, 'Scripts');
+const Script = model('Scripts', schema, 'Scripts');
 
 export default Script;

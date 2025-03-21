@@ -2,9 +2,11 @@ import pkg from 'lodash';
 
 import Photo from '../models/photo.js';
 
+import { sleep } from '../src/helpers/common.js';
+
 import { PLATFORMS } from '../constants.js';
 
-const { chunk }  = pkg;
+const { chunk } = pkg;
 
 const SaveGalleryPhotos = async ({
   photos: photosData,
@@ -36,7 +38,7 @@ const SaveGalleryPhotos = async ({
         displayMedium,
         displayLarge
       } = photo;
-  
+
       let setObj = {
         galleryName,
         setName,
@@ -52,7 +54,7 @@ const SaveGalleryPhotos = async ({
         displayMedium,
         displayLarge
       };
-  
+
       if (platform === PLATFORMS.PIC_TIME || platform === PLATFORMS.SHOOTPROOF) {
         setObj = {
           galleryName,
@@ -61,7 +63,7 @@ const SaveGalleryPhotos = async ({
           platform
         }
       }
-  
+
       return {
         updateOne: {
           filter: {
@@ -71,15 +73,29 @@ const SaveGalleryPhotos = async ({
             photoId
           },
           update: {
-            $set : setObj
+            $set: setObj
           },
           upsert: true
         }
       }
     });
     if (writeData.length) {
-      const res =  await Photo.bulkWrite(writeData);
-      console.log({ SaveGalleryPhotos: res });
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const res = await Photo.bulkWrite(writeData);
+          console.log({ SaveGalleryPhotos: res });
+          break;
+        } catch (err) {
+          console.log('Error in Save Photos Bulk Write', err);
+          retries -= 1;
+          if (retries === 0) {
+            throw err;
+          }
+          console.log(`Retrying... attempts left: ${retries}`);
+          await sleep(5);
+        }
+      }
     }
   }
 };

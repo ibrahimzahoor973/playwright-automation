@@ -2,6 +2,8 @@ import pkg from 'lodash';
 
 import GallerySet from '../models/gallery-set.js';
 
+import { sleep } from '../src/helpers/common.js';
+
 import { PLATFORMS } from '../constants.js';
 
 const { chunk } = pkg;
@@ -85,11 +87,27 @@ const SaveGallerySets = async ({
       }
     });
     if (writeData.length) {
-      const res = await GallerySet.bulkWrite(writeData);
-      console.log({ SaveGallerySets: res });
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const res = await GallerySet.bulkWrite(writeData);
+          console.log({ SaveGallerySets: res });
+          break;
+        } catch (err) {
+          console.log('Error in Save Galleries Sets Bulk Write', err);
+          retries -=1;
+
+          if (retries === 0) {
+            throw err;
+          }
+        
+        console.log(`Retrying... attempts left: ${retries}`);
+
+        await sleep(5);
+      }
     }
   }
-};
+}};
 
 const UpdateGallerySet = async ({
   filterParams,

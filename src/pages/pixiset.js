@@ -104,8 +104,7 @@ console.log({
     await UpdateScript({
       filterParams: {
         userEmail,
-        platform,
-        scriptPath
+        platform
       },
       updateParams: {
         running: false,
@@ -119,8 +118,7 @@ console.log({
       await UpdateScript({
         filterParams: {
           userEmail,
-          platform,
-          scriptPath
+          platform
         },
         updateParams: {
           running: false,

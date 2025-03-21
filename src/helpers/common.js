@@ -109,7 +109,7 @@ export const loginMethod = async ({
   
     await continueButton.click();
     await sleep(10);
-    const passwordSelector = await page.$('input[type=password]');
+    const passwordSelector = await page.$('input[placeholder="Password"]');
     await passwordSelector.type(password, { delay: 300 });
   
     await sleep(10);

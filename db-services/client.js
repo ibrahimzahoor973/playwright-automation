@@ -2,6 +2,8 @@ import pkg from 'lodash';
 
 import Client from '../models/client.js';
 
+import { sleep } from '../src/helpers/common.js';
+
 const { chunk } = pkg;
 
 const SaveClients = async ({
@@ -23,7 +25,7 @@ const SaveClients = async ({
         clientName: name,
         clientEmail: email
       } = client;
-  
+
       return {
         updateOne: {
           filter: {
@@ -32,7 +34,7 @@ const SaveClients = async ({
             email
           },
           update: {
-            $set : {
+            $set: {
               galleryName,
               name,
               platform
@@ -43,8 +45,22 @@ const SaveClients = async ({
       }
     });
     if (writeData.length) {
-      const res =  await Client.bulkWrite(writeData);
-      console.log({ SaveClients: res });
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const res = await Client.bulkWrite(writeData);
+          console.log({ SaveClients: res });
+          break;
+        } catch (err) {
+          console.log('Error in Save Clients Bulk Write', err);
+          retries -= 1;
+          if (retries === 0) {
+            throw err;
+          }
+          console.log(`Retrying... attempts left: ${retries}`);
+          await sleep(5);
+        }
+      }
     }
   }
 };

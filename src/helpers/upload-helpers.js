@@ -130,9 +130,9 @@ const CreatePayloadAndUploadGallery = async ({
   const payload = `<action>
       <type>createProject</type>
       <globalId>${guid}</globalId>
-      <name>${galleryName}</name>
-      <title>${galleryName}</title>
-      <externalProjectRef>${externalProjRef}</externalProjectRef>
+      <name>${galleryName.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</name>
+      <title>${galleryName.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>
+      <externalProjectRef>${externalProjRef}-002</externalProjectRef>
       <coverId>1010</coverId>
       <projectCategory>General</projectCategory>
       <projectDate>${moment(eventDate).format('YYYY/MM/DD')}</projectDate>
@@ -327,26 +327,21 @@ const UploadGallery = async ({
       setAndPhotos
     });
 
-    const photoChunks = chunk(setPhotos, 250);
-    console.log('Chunks ', photoChunks.length);
-    for (let j = 0; j < photoChunks.length; j += 1) {
-
-      console.log('j', j);
-      const photoChunk = photoChunks[j];
-      console.log('photoChunk', photoChunk.length)
-      count += photoChunk.length;
+      console.log('setName', setName);
 
       console.log({
         count,
         isArchived
       });
 
-      if (count < 251) {
-        photoChunk.forEach((photo) => {
+        setPhotos.forEach((photo) => {
           // console.log({ photoPath: !isArchived ? photo.filePath : photo.filePath+'/'+setName+'/'+photo.name });
           photoPayload += `<photo>
               <clientRemotePath>${
-                !isArchived ? photo.filePath : photo.filePath+'/'+setName+'/'+photo.name
+                !isArchived 
+                ? photo.filePath.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                : (photo.filePath + '/' + setName + '/' + photo.name)
+                  .replace(/&/g, '&amp;').replace(/</g, '&lt;')
               }</clientRemotePath>
               <width>0</width>
               <height>0</height>
@@ -359,14 +354,12 @@ const UploadGallery = async ({
         });
         subPayload += `<scene>
                 <allowRevisionUpload>true</allowRevisionUpload>
-                <name>${setName}</name>
+                <name>${setName.replace(/&/g, '&amp;').replace(/</g, '&lt;') }</name>
                 <uploadRequest>
                    ${photoPayload}
                 </uploadRequest>
             </scene>\n`
-      } else {
         console.log('In else ');
-        j -= 1;
         guid = generateGUID();
         await CreatePayloadAndUploadGallery({
           accountId,
@@ -397,8 +390,6 @@ const UploadGallery = async ({
         subPayload = ``;
         photoPayload = ``;
         count = 0;
-      }
-      }
     console.log('gallerySetId', gallerySetId);
 
   }

@@ -2,6 +2,8 @@ import pkg from 'lodash';
 
 import Gallery from '../models/gallery.js';
 
+import { sleep } from '../src/helpers/common.js';
+
 const { extend, chunk }  = pkg;
 
 const SaveGalleries = async ({
@@ -15,54 +17,67 @@ const SaveGalleries = async ({
 
   console.log({ galleryChunks: galleryChunks.length });
 
-  for (let i = 0; i < galleryChunks.length; i += 1 ) {
-    const galleries = galleryChunks[i];
-
-    const writeData = galleries.map((gallery) => {
-      const {
-        collectionId,
-        eventDate,
-        galleryName: name,
-        numberOfPhotos,
-        categories: eventCategory,
-        coverPhoto,
-        storageId,
-        coverPhotoUrl,
-        externalProjRef
-      } = gallery;
+    for (let i = 0; i < galleryChunks.length; i += 1 ) {
+      const galleries = galleryChunks[i];
   
-      return {
-        updateOne: {
-          filter: {
-            userEmail,
-            collectionId
-          },
-          update: {
-            $set : {
-              pageNumber,
-              name,
-              numberOfPhotos,
-              eventDate,
-              eventCategory,
-              coverPhoto,
-              platform,
-              baseUrl,
-              storageId,
-              coverPhotoUrl,
-              externalProjRef
-            }
-          },
-          upsert: true
+      const writeData = galleries.map((gallery) => {
+        const {
+          collectionId,
+          eventDate,
+          galleryName: name,
+          numberOfPhotos,
+          categories: eventCategory,
+          coverPhoto,
+          storageId,
+          coverPhotoUrl,
+          externalProjRef
+        } = gallery;
+    
+        return {
+          updateOne: {
+            filter: {
+              userEmail,
+              collectionId
+            },
+            update: {
+              $set : {
+                pageNumber,
+                name,
+                numberOfPhotos,
+                eventDate,
+                eventCategory,
+                coverPhoto,
+                platform,
+                baseUrl,
+                storageId,
+                coverPhotoUrl,
+                externalProjRef
+              }
+            },
+            upsert: true
+          }
         }
+      });
+  
+      if (writeData.length) {
+        let retries = 3;
+        while (retries > 0) {
+        try {
+        const res =  await Gallery.bulkWrite(writeData);
+        console.log({ SaveGalleries: res });
+        break;
+      } catch (err) {
+        console.log('Error in Save Galleries Bulk Write', err);
+        retries -=1;
+        if (retries === 0) {
+          throw err;
+        }
+        console.log(`Retrying... attempts left: ${retries}`);
+        await sleep(5);
       }
-    });
-
-    if (writeData.length) {
-      const res =  await Gallery.bulkWrite(writeData);
-      console.log({ SaveGalleries: res });
     }
   }
-};
+}};
 
 const GetGalleries = async ({
   filterParams,

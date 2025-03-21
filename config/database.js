@@ -4,8 +4,9 @@ const { MONGO_URL } = process.env;
 
 console.log({ MONGO_URL });
 const option = {
-  socketTimeoutMS: 60000,
-  connectTimeoutMS: 60000
+  maxPoolSize: 200,
+  socketTimeoutMS: 120000,
+  connectTimeoutMS: 120000
 };
 connect(
   MONGO_URL,
