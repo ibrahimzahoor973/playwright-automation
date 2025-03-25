@@ -328,10 +328,11 @@ export const DownloadRetrievedPhotos = async ({
               responseType: 'stream'
             });
   
-            const directoryPath = path.join(process.cwd(), `${userEmail}/${galleryName}-${collectionId}.zip`);
+            // let directoryPath = path.join(process.cwd(), `${userEmail}/${galleryName.replace(/[<>:"\/\\|?*]/g, '-')}-${collectionId}.zip`);
+  
             // const temporaryPath = path.join('D:', `${userEmail}/photos.zip`);
   
-            // const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName}-${collectionId}.zip`);
+            const directoryPath = path.join('D:', `Pic-Time/${userEmail}/${galleryName.replace(/[<>:"\/\\|?*]/g, '-')}-${collectionId}.zip`);
   
             const directory = path.dirname(directoryPath);
           
@@ -356,9 +357,9 @@ export const DownloadRetrievedPhotos = async ({
             });
 
 
-            const extractPath = path.join(process.cwd(), `${userEmail}/${galleryName}-${collectionId}`);
+            // const extractPath = path.join(process.cwd(), `${userEmail}/${galleryName.replace(/[<>:"\/\\|?*]/g, '-')}-${collectionId}`);
 
-            // const extractPath = path.join('D:', `${userEmail}/${galleryName}-${collectionId}`);
+            const extractPath = path.join('D:', `${userEmail}/${galleryName.replace(/[<>:"\/\\|?*]/g, '-')}-${collectionId}`);
 
             yauzl.open(directoryPath, { lazyEntries: true }, (err, zipfile) => {
               if (err) throw err;

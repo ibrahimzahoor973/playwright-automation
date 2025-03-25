@@ -78,9 +78,9 @@ const DownloadGalleryPhotos = async ({
       responseType: 'stream'
     });
 
-    const directoryPath = path.join(process.cwd(), `ShootProof/${userEmail}/${galleryName}-${collectionId}.zip`);
+    // const directoryPath = path.join(process.cwd(), `ShootProof/${userEmail}/${galleryName}-${collectionId}.zip`);
 
-    // const directoryPath = path.join('D:', `ShootProof/${userEmail}/${galleryName}-${collectionId}.zip`);
+    const directoryPath = path.join('D:', `ShootProof/${userEmail}/${galleryName.replace((/[<>:"\/\\|?*]/g, '-'))}-${collectionId}.zip`);
 
     const directory = path.dirname(directoryPath);
 
@@ -107,9 +107,9 @@ const DownloadGalleryPhotos = async ({
     });
 
 
-    const extractPath = path.join(process.cwd(), `ShootProof/${userEmail}/${galleryName}-${collectionId}`);
+    // const extractPath = path.join(process.cwd(), `ShootProof/${userEmail}/${galleryName.replace((/[<>:"\/\\|?*]/g, '-'))}-${collectionId}`);
 
-    // const extractPath = path.join('D:', `ShootProof/${userEmail}/${galleryName}-${collectionId}`);
+    const extractPath = path.join('D:', `ShootProof/${userEmail}/${galleryName.replace(/[<>:"\/\\|?*]/g, '-')}-${collectionId}`);
 
     await new Promise((resolve, reject) => {
       yauzl.open(directoryPath, { lazyEntries: true }, (err, zipfile) => {
