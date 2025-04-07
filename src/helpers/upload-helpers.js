@@ -237,7 +237,7 @@ const UploadGallery = async ({
 
   let setsAndPhotos;
 
-  if (platform === PLATFORMS.SHOOTPROOF) {
+  if (platform === PLATFORMS.SHOOTPROOF || platform === PLATFORMS.ZENFOLIO) {
     const groupedPhotos = groupBy(photos, 'setName');
     console.log({
       collectionId,

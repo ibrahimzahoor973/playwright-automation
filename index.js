@@ -29,10 +29,18 @@ if (uploadScript) {
     .catch(err => {
         console.error('Error loading the module:', err);
     });
-} else {
+} else if (platform === PLATFORMS.SHOOTPROOF) {
     import('./src/pages/shootproof.js')
     .then(() => {
         console.log('Shoot Proof Module Loaded');
+    })
+    .catch(err => {
+        console.error('Error loading the module:', err);
+    });
+} else if (platform === PLATFORMS.ZENFOLIO) {
+    import('./src/pages/zenfolio.js')
+    .then(() => {
+        console.log('ZenFolio Module Loaded');
     })
     .catch(err => {
         console.error('Error loading the module:', err);

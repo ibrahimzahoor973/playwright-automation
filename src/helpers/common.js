@@ -242,6 +242,57 @@ export const loginToShootProof = async ({
   }
 };
 
+export const loginToZenFolio = async ({
+  page,
+  email,
+  password,
+  retries = 3
+}) => {
+  try {
+    console.log({ email, password });
+
+    const emailSelector = await page.$('#email');
+    console.log({ emailSelector });
+
+    await emailSelector.click();
+    await emailSelector.click({ clickCount: 3 });
+    await emailSelector.press('Backspace');
+    await emailSelector.type(email, { delay: 300 });
+  
+    await sleep(10);
+  
+    const passwordSelector = await page.$('#password');
+    await passwordSelector.type(password, { delay: 300 });
+
+    console.log({ passwordSelector });
+
+    console.log("Email and password filled");
+  
+    await sleep(10);
+
+    const loginButton = page.locator('button', { hasText: 'Log in' });
+
+    await loginButton.click();
+  
+    console.log('Button clicked, logging in...');
+  
+    await sleep(10);
+  } catch (err) {
+    console.error('Error in loginToZenFolio', err);
+    if (retries > 0) {
+      await page.reload();
+      await loginToZenFolio({
+        page,
+        email,
+        password,
+        retries: retries - 1
+      });
+    } else {
+      throw new Error('LOGIN FAILED!');
+    }
+  }
+};
+
 export const encryptPassword = (password) => {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(HASHING_ALGORITHM, SECRET_KEY, iv);

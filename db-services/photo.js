@@ -54,8 +54,8 @@ const SaveGalleryPhotos = async ({
         displayMedium,
         displayLarge
       };
-
-      if (platform === PLATFORMS.PIC_TIME || platform === PLATFORMS.SHOOTPROOF) {
+  
+      if (platform === PLATFORMS.PIC_TIME || platform === PLATFORMS.SHOOTPROOF || platform === PLATFORMS.ZENFOLIO) {
         setObj = {
           galleryName,
           setName: sceneName,
