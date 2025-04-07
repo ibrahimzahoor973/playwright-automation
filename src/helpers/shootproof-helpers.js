@@ -52,8 +52,8 @@ const GetAndSaveBrand = async ({
 const parseGalleries = ({
   collections
 }) => {
-  const guid = generateGUID();
   return collections.map((collection) => {
+    const guid = generateGUID();
     let coverPhoto;
     if (collection.coverPhoto) {
       const { coverPhoto: { displayUrl : { large } = {} } } = collection;

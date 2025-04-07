@@ -65,6 +65,52 @@ const SaveClients = async ({
   }
 };
 
+const SaveZenFolioClients = async ({
+  clients: clientsData,
+  collectionId,
+  userEmail,
+  galleryName,
+  platform
+}) => {
+  const clientChunks = chunk(clientsData, 200);
+
+  console.log({ clientChunks: clientChunks.length });
+
+  for (let i = 0; i < clientChunks.length; i += 1) {
+    const clients = clientChunks[i];
+
+    const writeData = clients.map((client) => {
+      const {
+        clientId,
+        fullName: name,
+        email
+      } = client;
+  
+      return {
+        updateOne: {
+          filter: {
+            userEmail,
+            collectionId,
+            email
+          },
+          update: {
+            $set : {
+              clientId,
+              galleryName,
+              name,
+              platform
+            }
+          },
+          upsert: true
+        }
+      }
+    });
+    if (writeData.length) {
+      await Client.bulkWrite(writeData);
+    }
+  }
+};
+
 const GetClients = async ({
   filterParams,
   limit,
@@ -77,6 +123,7 @@ const GetClients = async ({
 
 export {
   SaveClients,
+  SaveZenFolioClients,
   GetClients
 };
 

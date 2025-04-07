@@ -64,12 +64,24 @@ const SaveGallerySets = async ({
         numberOfPhotos = photoCount;
         name = setName;
         subsetIds = subAlbumIds;
+      } else if (platform === PLATFORMS.ZENFOLIO) {
+        const {
+          galleryId,
+          setId: Id,
+          name: setName,
+          numberOfPhotos: photoCount,
+        } = set;
+        collectionId = galleryId;
+        setId = Id;
+        numberOfPhotos = photoCount;
+        name = setName;
       }
   
       return {
         updateOne: {
           filter: {
             userEmail,
+            collectionId,
             setId
           },
           update: {
@@ -109,6 +121,54 @@ const SaveGallerySets = async ({
   }
 }};
 
+const SaveZenFolioGallerySets = async ({
+  gallerySets: gallerySetsData,
+  galleryName,
+  userEmail,
+  platform
+}) => {
+  const gallerySetsChunks = chunk(gallerySetsData, 200);
+
+  console.log({ gallerySetsChunks: gallerySetsChunks.length });
+
+
+  for (let i = 0; i < gallerySetsChunks.length; i += 1) {
+    const gallerySets = gallerySetsChunks[i];
+
+    const writeData = gallerySets.map((set) => {
+      const {
+        galleryId: collectionId,
+        setId,
+        name,
+        numberOfPhotos,
+      } = set;
+
+      return {
+        updateOne: {
+          filter: {
+            userEmail,
+            collectionId,
+            setId
+          },
+          update: {
+            $set: {
+              numberOfPhotos,
+              name,
+              platform,
+              galleryName
+            }
+          },
+          upsert: true
+        }
+      }
+    });
+    if (writeData.length) {
+      const res = await GallerySet.bulkWrite(writeData);
+      console.log({ SaveGallerySets: res });
+    }
+  }
+};
+
 const UpdateGallerySet = async ({
   filterParams,
   updateParams
@@ -143,6 +203,7 @@ const GetGallerySets = async ({
 export {
   GetGallerySets,
   SaveGallerySets,
+  SaveZenFolioGallerySets,
   UpdateGallerySet,
   UpdateGallerySets
 };
