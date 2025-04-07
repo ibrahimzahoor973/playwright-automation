@@ -24,7 +24,8 @@ const DownloadPhoto = async ({
     galleryName,
     setName = '',
     name,
-    photoId
+    photoId,
+    collectionId
   } = photo;
   console.log('in DownloadPhoto method', index, photoId);
   return new Promise(async (resolve, reject) => {
@@ -38,7 +39,7 @@ const DownloadPhoto = async ({
       responseType: 'stream'
     }).then((streamResponse) => {
       // const filePath = path.join(process.cwd(), `Pixieset/${userEmail}`, `${galleryName}/${setName}/${name}`);
-      const filePath = path.join('D:', `Pixieset/${userEmail}`, (`${galleryName}/${setName}/${name}`).replace(/[<>:"\/\\|?*]/g, '-'));
+      const filePath = path.join('F:', `Pixieset/${userEmail}`, `${galleryName.replace(/[<>:"\/\\|?*]/g, '-')}-${collectionId}/${setName.replace(/[<>:"\/\\|?*]/g, '-')}/${name.replace(/[<>:"\/\\|?*]/g, '-')}`);
       console.log({ filePath });
 
       // Check if the directory exists and create it if it doesn't
@@ -94,15 +95,19 @@ const DownloadPhotos = async ({
       filterParams: {
         userEmail,
         platform,
-        $or: [
-          { isLocked: { $exists: false } },
-          { isLocked: false }
-        ],
-        isDownloaded: { $exists: false },
-        $or: [
-          { retryCount: { $exists: false } },
-          { retryCount: { $lt: 3 } }
-        ]
+        $and: [{
+          $or: [
+            { retryCount: { $exists: false } },
+            { retryCount: { $lt: 3 } }
+          ]
+        },
+        {
+          $or: [
+            { isLocked: { $exists: false } },
+            { isLocked: false }
+          ]
+        }],
+        isDownloaded: { $exists: false }
       }, limit: 1
     });
     let photosData;
@@ -115,11 +120,13 @@ const DownloadPhotos = async ({
           updateParams: { isLocked: true }
         });
 
-        const gallerySets = await GetGallerySets({ filterParams: {
-          userEmail,
-          collectionId: gallery.collectionId,
-          isDownloaded: { $exists: false }
-        } });
+        const gallerySets = await GetGallerySets({
+          filterParams: {
+            userEmail,
+            collectionId: gallery.collectionId,
+            isDownloaded: { $exists: false }
+          }
+        });
         console.log({ gallerySets: gallerySets.length });
 
         for (let j = 0; j < gallerySets.length; j += 1) {
@@ -147,21 +154,25 @@ const DownloadPhotos = async ({
                 userEmail
               });
 
-              await UpdateGalleryPhoto({ filterParams: {
-                userEmail,
-                photoId: photo.photoId
-              },
-              updateParams: {
-                isDownloaded: true,
-                filePath
-              } });
+              await UpdateGalleryPhoto({
+                filterParams: {
+                  userEmail,
+                  photoId: photo.photoId
+                },
+                updateParams: {
+                  isDownloaded: true,
+                  filePath
+                }
+              });
             } catch (err) {
               console.log('Error while downloading Photo', photo.photoId);
-              await UpdateGalleryPhoto({ filterParams: {
-                userEmail,
-                photoId: photo.photoId
-              },
-              updateParams: { problematic: true } });
+              await UpdateGalleryPhoto({
+                filterParams: {
+                  userEmail,
+                  photoId: photo.photoId
+                },
+                updateParams: { problematic: true }
+              });
               errorInGallery = true;
               errorInGallerySet = true
             }
@@ -211,7 +222,7 @@ const DownloadPhotos = async ({
       throw err;
     }
   } while (gallery)
-    return true;
+  return true;
 };
 
 export default DownloadPhotos;

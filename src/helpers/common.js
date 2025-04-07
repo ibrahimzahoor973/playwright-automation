@@ -353,7 +353,7 @@ export const navigateWithRetry = async (page, url) => {
       console.log('Navigation successful!');
       return;
     } catch (error) {
-      console.log({ error })
+      console.log('Error in navigateWithRetry', { error })
       if (error?.message?.toLowerCase().includes('navigation timeout')) {
         console.log(`Navigation timeout after ${currentTimeout / 1000}s. Retrying...`);
         currentTimeout *= 2;
@@ -365,4 +365,32 @@ export const navigateWithRetry = async (page, url) => {
   }
 
   throw new Error(`Failed to navigate to ${url} after reaching max timeout of ${MAX_TIMEOUT / 1000}s`);
+}
+
+export const navigateWithEvaluate = async (page, url, maxRetries = 3, delay = 2) => {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+      try {
+          console.log(`Attempt ${attempt + 1}: Navigating to ${url}`);
+          
+          await page.evaluate((url) => {
+              window.location.href = url;
+          }, url);
+
+          // Wait for navigation to complete
+          await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 });
+
+          console.log('Navigation successful');
+          return;
+      } catch (error) {
+          console.error(`Navigation failed: ${error.message}`);
+          attempt++;
+          if (attempt < maxRetries) {
+              console.log(`Retrying in ${delay / 1000} seconds...`);
+              await sleep(2);
+          } else {
+              console.error('Max retries reached. Navigation failed.');
+          }
+      }
+  }
 }

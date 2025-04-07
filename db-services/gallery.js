@@ -30,7 +30,8 @@ const SaveGalleries = async ({
           coverPhoto,
           storageId,
           coverPhotoUrl,
-          externalProjRef
+          externalProjRef,
+          offline
         } = gallery;
     
         return {
@@ -51,7 +52,8 @@ const SaveGalleries = async ({
                 baseUrl,
                 storageId,
                 coverPhotoUrl,
-                externalProjRef
+                externalProjRef,
+                offline
               }
             },
             upsert: true
@@ -91,7 +93,8 @@ const GetGalleries = async ({
 
 const UpdateGallery = async ({
   filterParams,
-  updateParams
+  updateParams,
+  unsetParams
 }) => {
   const { retryCount } = updateParams || {};
 
@@ -103,11 +106,20 @@ const UpdateGallery = async ({
     extend(updateObj, { $inc: { retryCount: 1 } });
   }
 
-  await Gallery.updateOne({
-    ...filterParams
-  }, {
-    ...updateObj
-  });
+  if (unsetParams) {
+    await Gallery.updateOne({
+      ...filterParams
+    }, {
+      $set: updateObj,
+      $unset: unsetParams
+    });
+  } else {
+    await Gallery.updateOne({
+      ...filterParams
+    }, {
+      ...updateObj
+    });
+  }
 };
 
 const UpdateGalleries = async ({

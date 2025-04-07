@@ -171,24 +171,44 @@ const SaveZenFolioGallerySets = async ({
 
 const UpdateGallerySet = async ({
   filterParams,
-  updateParams
+  updateParams,
+  unsetParams
 }) => {
-  await GallerySet.updateOne({
-    ...filterParams
-  }, {
-    ...updateParams
-  });
+  if (unsetParams) {
+    await GallerySet.updateOne({
+      ...filterParams
+    }, {
+      $set: updateParams,
+      $unset: unsetParams
+    });
+  } else {
+    await GallerySet.updateOne({
+      ...filterParams
+    }, {
+      ...updateParams
+    });
+  }
 };
 
 const UpdateGallerySets = async ({
   filterParams,
-  updateParams
+  updateParams,
+  unsetParams
 }) => {
-  await GallerySet.updateMany({
-    ...filterParams
-  }, {
-    ...updateParams
-  });
+  if (unsetParams) {
+    await GallerySet.updateMany({
+      ...filterParams
+    }, {
+      $set: updateParams,
+      $unset: unsetParams
+    });
+  } else {
+    await GallerySet.updateMany({
+      ...filterParams
+    }, {
+      ...updateParams
+    });
+  }
 };
 
 

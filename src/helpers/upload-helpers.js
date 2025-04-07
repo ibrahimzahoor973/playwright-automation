@@ -214,7 +214,7 @@ const UploadGallery = async ({
   if (platform === PLATFORMS.PIC_TIME) {
     coverPhoto = coverPhotoUrl;
   } else {
-   coverPhoto = galleryCoverPhoto;
+    coverPhoto = galleryCoverPhoto;
   }
 
 
@@ -247,8 +247,8 @@ const UploadGallery = async ({
       const item = items.find((item) => item.setName === setName);
 
       return {
-      setId: item?.setId || null,
-      [setName]: items
+        setId: item?.setId || null,
+        [setName]: items
       }
     });
   } else {
@@ -259,7 +259,7 @@ const UploadGallery = async ({
         setId,
         [name]: setPhotos
       }
-    });  
+    });
   }
 
   console.log({
@@ -303,6 +303,7 @@ const UploadGallery = async ({
   let gallerySetId;
   let photoIds = [];
   let setIds = [];
+  let notFoundPhotoIds = [];
 
   console.log({
     setsAndPhotos: setsAndPhotos.length
@@ -327,71 +328,124 @@ const UploadGallery = async ({
       setAndPhotos
     });
 
-      console.log('setName', setName);
+    console.log('setName', setName);
 
-      console.log({
-        count,
-        isArchived
-      });
+    console.log({
+      count,
+      isArchived
+    });
 
-        setPhotos.forEach((photo) => {
-          // console.log({ photoPath: !isArchived ? photo.filePath : photo.filePath+'/'+setName+'/'+photo.name });
-          photoPayload += `<photo>
-              <clientRemotePath>${
-                !isArchived 
-                ? photo.filePath.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                : (photo.filePath + '/' + setName + '/' + photo.name)
-                  .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-              }</clientRemotePath>
+    setPhotos.forEach((photo) => {
+      // console.log({ photoPath: !isArchived ? photo.filePath : photo.filePath+'/'+setName+'/'+photo.name });
+      let exists;
+      if (!isArchived) {
+        exists = fs.existsSync(photo.filePath);
+      } else {
+        exists = fs.existsSync(photo.filePath + '/' + setName + '/' + photo.name);
+      }
+
+      if (exists) {
+        photoPayload += `<photo>
+              <clientRemotePath>${!isArchived
+          ? photo.filePath.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          : (photo.filePath + '/' + setName + '/' + photo.name)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        }</clientRemotePath>
               <width>0</width>
               <height>0</height>
               <lastModified>${moment(photo.updatedAt).format('YYYY-MM-DD hh:mm:ss')}</lastModified>
               </photo>\n`;
-          photoIds.push(photo.photoId);
-        });
-        console.log({
-          photoPayload
-        });
-        subPayload += `<scene>
+        photoIds.push(photo.photoId);
+      } else {
+        console.log('File Does not Exist');
+        notFoundPhotoIds.push(photo.photoId);
+      }
+    });
+
+    console.log({
+      photoPayload
+    });
+
+    subPayload += `<scene>
                 <allowRevisionUpload>true</allowRevisionUpload>
-                <name>${setName.replace(/&/g, '&amp;').replace(/</g, '&lt;') }</name>
+                <name>${setName.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</name>
                 <uploadRequest>
                    ${photoPayload}
                 </uploadRequest>
             </scene>\n`
-        console.log('In else ');
-        guid = generateGUID();
-        await CreatePayloadAndUploadGallery({
-          accountId,
-          guid,
-          galleryName,
-          externalProjRef,
-          eventDate,
-          coverPhoto,
-          name,
-          email,
-          subPayload,
-          photoIds,
-          updateGallery,
+    console.log('In else ');
+    guid = generateGUID();
+    await CreatePayloadAndUploadGallery({
+      accountId,
+      guid,
+      galleryName,
+      externalProjRef,
+      eventDate,
+      coverPhoto,
+      name,
+      email,
+      subPayload,
+      photoIds,
+      updateGallery,
+      collectionId
+    });
+
+    if (notFoundPhotoIds.length) {
+      await UpdateGallery({
+        filterParams: {
           collectionId
-        });
+        },
+        updateParams: {
+          error: 'Photos does not exist in System'
+        },
+        unsetParams: {
+          isDownloaded: 1
+        }
+      });
 
-        await UpdateGallerySets({
-          filterParams: {
-            setId: { $in: setIds }
-          },
-          updateParams: {
-            isUploaded: true
-          }
-        });
+      await UpdateGallerySet({
+        filterParams: {
+          collectionId,
+          setId
+        },
+        updateParams: {
+          error: 'Photos does not exist in System'
+        },
+        unsetParams: {
+          isDownloaded: 1
+        }
+      });
 
-        photoIds = [];
-        setIds = [];
-        subPayload = ``;
-        photoPayload = ``;
-        count = 0;
+      await UpdateGalleryPhotos({
+        filterParams: {
+          photoId: { $in: notFoundPhotoIds },
+        },
+        updateParams: {
+          error: 'Photo does not exist in System'
+        },
+        unsetParams: {
+          isDownloaded: 1,
+          filePath: 1
+        }
+      });
+    } else {
+      await UpdateGallerySets({
+        filterParams: {
+          setId: { $in: setIds }
+        },
+        updateParams: {
+          isUploaded: true
+        }
+      });
+    }
+
+    photoIds = [];
+    notFoundPhotoIds = [];
+    setIds = [];
+    subPayload = ``;
+    photoPayload = ``;
+    count = 0;
     console.log('gallerySetId', gallerySetId);
-
   }
 
   if (subPayload) {
@@ -495,27 +549,27 @@ const CreateGalleriesInUserAccount = async ({
           galleryUploaded: { $exists: false }
         }
       });
-  
+
       console.log({ galleries: galleries.length });
-  
+
       for (let i = 0; i < galleries.length; i += 1) {
         const gallery = galleries[i];
-  
+
         await UploadGallery({
           gallery,
           platform,
           accountId
         });
-    
+
         await UpdateGallery({
           filterParams: {
             _id: gallery._id,
           },
           updateParams: {
-            galleryUploaded: true        
+            galleryUploaded: true
           }
         });
-  
+
         await sleep(30);
       }
     }

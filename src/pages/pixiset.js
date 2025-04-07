@@ -5,7 +5,7 @@ import pkg from 'lodash';
 import { UpdateScript } from '../../db-services/script.js';
 
 import GetClients from '../helpers/pixieset-helpers.js';
-import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, pixiesetLoginMethod, navigateWithRetry } from '../helpers/common.js';
+import { sleep, getCookies, parseProxyUrl, sendNotificationOnSlack, pixiesetLoginMethod, navigateWithRetry, navigateWithEvaluate } from '../helpers/common.js';
 
 import DownloadPhotos from '../download-services/download-pixieset-photos.js'
 
@@ -31,7 +31,7 @@ console.log({
   console.log({ sessionDir: `${process.cwd()}/public/sessions/${userEmail}` })
 
   const connectConfig = {
-    userDataDir: `${process.cwd()}/public/sessions/${userEmail}`,
+   userDataDir: 'F:/puppeteer-data',
     headless: false,
     args: [
       // '--headless=new',
@@ -67,10 +67,10 @@ console.log({
 
       await page.setViewport({ width: 1920, height: 1080 });
 
-      await navigateWithRetry(page, 'https://galleries.pixieset.com/collections');
+      await navigateWithRetry(page, 'https://accounts.pixieset.com/login');
       await sleep(30);
 
-      await page.reload();
+      // await page.reload();
 
       if (page.url().includes('/login')) {
         await pixiesetLoginMethod({
@@ -80,7 +80,9 @@ console.log({
         });
       }
 
-      await navigateWithRetry(page, 'https://galleries.pixieset.com/collections');
+      await sleep(20);
+
+      await navigateWithEvaluate(page, 'https://galleries.pixieset.com/collections');
 
       await sleep(10);
 
@@ -129,6 +131,6 @@ console.log({
         task: 'Pixieset Automation',
         errorMessage: error?.message || 'Unknown Reason'
       });
-      await browser.close();
+      if (browser) await browser.close();
     });
 })();

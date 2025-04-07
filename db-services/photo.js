@@ -121,11 +121,22 @@ const UpdateGalleryPhoto = async ({
 
 const UpdateGalleryPhotos = async ({
   filterParams,
-  updateParams
+  updateParams,
+  unsetParams
 }) => {
-  await Photo.updateMany({
-    ...filterParams
-  }, updateParams);
+  if (unsetParams) {
+    await Photo.updateMany({
+      ...filterParams
+    },
+    {
+      $set: updateParams,
+      $unset: unsetParams
+    });
+  } else {
+    await Photo.updateMany({
+      ...filterParams
+    }, updateParams);
+  }
 };
 
 
