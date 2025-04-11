@@ -14,7 +14,7 @@ if (uploadScript) {
         console.error('Error loading the module:', err);
     });
 } else if (platform === PLATFORMS.PIXIESET) {
-    import('./src/pages/pixiset.js')
+    import('./controllers/pixie-set/index.js')
     .then(() => {
         console.log('Pixieset Module Loaded');
     })
