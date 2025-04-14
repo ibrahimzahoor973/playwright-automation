@@ -2,11 +2,9 @@ import moment from 'moment';
 
 import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 
-import { GetAccount } from '../db-services/account.js';
 
-
-import { PLATFORMS, ENDPOINTS } from '../../constants.js';
-import { sleep } from './common.js';
+import { PLATFORMS, ENDPOINTS } from '../constants.js';
+import { sleep } from '../src/helpers/common.js';
 
 const axiosBase = AxiosBaseUrl();
 
@@ -45,7 +43,7 @@ const UploadGalleryToPassGallery = async ({
 }
 
 const CreatePayloadAndUploadGallery = async ({
-  accountId,
+  passGalleryId,
   guid,
   galleryName,
   externalProjRef,
@@ -72,6 +70,10 @@ const CreatePayloadAndUploadGallery = async ({
           <sendEmailOnPublish>false</sendEmailOnPublish>
           <publishWhenDone>true</publishWhenDone>
       </projectAction>
+      <customer>
+        <name></name>
+        <email></email>
+      </customer>
       <upload>
           <scenes>
              ${subPayload}
@@ -79,8 +81,10 @@ const CreatePayloadAndUploadGallery = async ({
       </upload>
   </action>`;
 
+  console.log({ payload });
+
   await UploadGalleryToPassGallery({
-    accountId,
+    accountId: passGalleryId,
     payload
   });
 
@@ -99,7 +103,7 @@ const CreatePayloadAndUploadGallery = async ({
 const UploadGallery = async ({
   gallery,
   platform,
-  accountId
+  passGalleryId
 }) => {
   const {
     collectionId,
@@ -119,7 +123,7 @@ const UploadGallery = async ({
   const subPayload = ``;
 
   await CreatePayloadAndUploadGallery({
-    accountId,
+    passGalleryId,
     guid,
     galleryName,
     externalProjRef,
@@ -133,22 +137,24 @@ const UploadGallery = async ({
 
 
 const CreateGalleriesInUserAccount = async ({
-  userEmail,
+  accountId,
   platform
 }) => {
   try {
-    let accountId;
+    let passGalleryId;
 
     console.log({
-      userEmail,
+      accountId,
       platform
     });
-
-    const account = await axios.post(ENDPOINTS.ACCOUNT.GET_ACCOUNT, {
-      email: userEmail,
+  
+    const res = await axiosBase.post(ENDPOINTS.ACCOUNT.GET_ACCOUNT, {
+      accountId,
       platform,
-      uploadScriptAccount: true
-    }).data.account;;
+      uploadScriptAccount: false
+    });
+        
+    const account = res?.data?.account;
 
     console.log({
       account
@@ -159,19 +165,23 @@ const CreateGalleriesInUserAccount = async ({
       console.log({
         passGalleryAccountId
       })
-      accountId = passGalleryAccountId;
+      passGalleryId = passGalleryAccountId;
     }
 
-    if (accountId) {
-      const galleries = await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
+    if (passGalleryId) {
+      const resGalleries = await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
         filterParams: {
-          userEmail,
+          accountId,
           platform,
           galleryUploaded: { $exists: false }
         }
-      }).data.galleries || [];;
+      });
 
-      console.log({ galleries: galleries });
+      console.log({ resGalleries })
+
+      const galleries = resGalleries?.data?.galleries;
+
+      console.log({ galleries });
 
       for (let i = 0; i < galleries.length; i += 1) {
         const gallery = galleries[i];
@@ -179,7 +189,7 @@ const CreateGalleriesInUserAccount = async ({
         await UploadGallery({
           gallery,
           platform,
-          accountId
+          passGalleryId
         });
 
         await axiosBase.post(ENDPOINTS.GALLERY.UPDATE_GALLERY, {
