@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { AxiosBaseUrl } from '../../config/axios.js';
 
-import { sleep, sendNotificationOnSlack } from '../../src/helpers/common.js';
+import { sleep, sendNotificationOnSlack } from '../../helpers/common.js';
 
 import { ENDPOINTS } from '../../constants.js';
 

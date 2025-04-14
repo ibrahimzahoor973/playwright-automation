@@ -17,7 +17,7 @@ import {
   pixiesetLoginMethod,
   navigateWithRetry,
   navigateWithEvaluate
-} from '../../src/helpers/common.js';
+} from '../../helpers/common.js';
 
 const { extend } = pkg;
 

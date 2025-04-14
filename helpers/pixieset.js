@@ -1,6 +1,6 @@
 import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 
-import { generateGUID, navigateWithRetry } from '../src/helpers/common.js';
+import { generateGUID, navigateWithRetry } from '../helpers/common.js';
 
 import { ENDPOINTS } from '../constants.js';
 

@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import './config/database.js';
 
 import { PLATFORMS } from './constants.js';
 

@@ -4,7 +4,7 @@ import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 
 
 import { PLATFORMS, ENDPOINTS } from '../constants.js';
-import { sleep } from '../src/helpers/common.js';
+import { sleep } from '../helpers/common.js';
 
 const axiosBase = AxiosBaseUrl();
 
