@@ -43,13 +43,13 @@ const getGalleryCollections = async ({
   return galleryCollections;
 }
 
-const GetGalleries = async ({ filteredCookies, userEmail }) => {
+const GetGalleries = async ({ filteredCookies, accountId }) => {
   try {
-    console.log({ userEmail });
+    console.log({ accountId });
   
     const [latestGallery] = (await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
       filterParams: {
-        userEmail,
+        accountId,
         platform
       },
       limit: 1,
@@ -93,19 +93,17 @@ const GetGalleries = async ({ filteredCookies, userEmail }) => {
       galleries: galleryCollections,
       platform,
       pageNumber,
-      userEmail
+      accountId
     });
 
     galleries.push(...galleryCollections);
 
     console.log({ lastPage, pageNumber });
-
-    // uploading task
   
-    // await CreateGalleriesInUserAccount({
-    //   userEmail,
-    //   platform
-    // });
+    await CreateGalleriesInUserAccount({
+      accountId,
+      platform
+    });
 
     while (lastPage !== pageNumber) {
       pageNumber += 1;
@@ -131,15 +129,20 @@ const GetGalleries = async ({ filteredCookies, userEmail }) => {
         galleries: galleryCollections,
         platform,
         pageNumber,
-        userEmail
+        accountId
       });
 
       galleries.push(...galleryCollections);
+
+      await CreateGalleriesInUserAccount({
+        accountId,
+        platform
+      });
     }
 
     await axiosBase.post(ENDPOINTS.GALLERY.UPDATE_GALLERY, {
       filterParams: {
-        userEmail,
+        accountId,
         platform,
         collectionId: galleries[galleries.length - 1]?.collectionId
       },
@@ -156,15 +159,14 @@ const GetGalleries = async ({ filteredCookies, userEmail }) => {
 };
 
 const GetClientsGallery = async ({
-  page,
-  filteredCookies,
-  userEmail
+  accountId,
+  filteredCookies
 }) => {
   try {
     let collections = [];
     const [gallery] = (await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
       filterParams: {
-        userEmail,
+        accountId,
         platform,
         allGalleriesSynced: true
       },
@@ -173,7 +175,7 @@ const GetClientsGallery = async ({
     if (gallery) {
       // need next processing
     } else {
-      collections = await GetGalleries({ filteredCookies, userEmail });
+      collections = await GetGalleries({ filteredCookies, accountId });
     }
 
     console.log({ collections: collections.length });

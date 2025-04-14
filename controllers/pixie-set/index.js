@@ -24,6 +24,7 @@ const { extend } = pkg;
 const {
   userEmail,
   userPassword,
+  userAccountId,
   PROXY_SETTINGS: proxySettings,
   downloadPhotos,
   proxy: proxyUrl,
@@ -33,10 +34,11 @@ const {
 
 console.log({
   userEmail,
-  userPassword
+  userPassword,
+  userAccountId,
 });
 
-const performLogin = async (connectConfig) => {
+const performLogin = async (connectConfig, accountId) => {
   const { browser, page } = await connect(connectConfig);
   await page.setViewport({ width: 1920, height: 1080 });
   await navigateWithRetry(page, 'https://accounts.pixieset.com/login');
@@ -57,7 +59,7 @@ const performLogin = async (connectConfig) => {
   const filteredCookies = getCookies({ cookies });
 
   await axios.post(ENDPOINTS.ACCOUNT.UPDATE_ACCOUNT, {
-    email: userEmail,
+    accountId,
     platform,
     authorization: filteredCookies
   });
@@ -69,12 +71,11 @@ const performLogin = async (connectConfig) => {
   };
 };
 
-const startGalleryFetch = async (page, filteredCookies, connectConfig) => {
+const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
   try {
     await GetClientsGallery({
-      page,
-      filteredCookies,
-      userEmail
+      accountId,
+      filteredCookies
     });
   } catch (err) {
     if (err.message === 'UnauthorizedCookies') {
@@ -86,9 +87,8 @@ const startGalleryFetch = async (page, filteredCookies, connectConfig) => {
       } = await performLogin(connectConfig);
 
       await GetClientsGallery({
-        page: newPage,
-        filteredCookies: newCookies,
-        userEmail
+        accountId,
+        filteredCookies: newCookies
       });
       await newBrowser.close();
     } else {
@@ -99,7 +99,7 @@ const startGalleryFetch = async (page, filteredCookies, connectConfig) => {
 
 
 (async () => {
-  let browser, page, filteredCookies;
+  let browser, page, filteredCookies, accountId;
   try {
     let account;
     try {
@@ -138,13 +138,15 @@ const startGalleryFetch = async (page, filteredCookies, connectConfig) => {
 
     console.log({ account });
 
+    accountId = account?._id;
+
     if (!account?.authorization) {
       console.log('Authorization not found. Starting login process...');
       ({
         browser,
         page,
         filteredCookies
-      } = await performLogin(connectConfig));
+      } = await performLogin(connectConfig, accountId));
     } else {
       filteredCookies = account.authorization;
       const connectResult = await connect(connectConfig);
@@ -153,7 +155,7 @@ const startGalleryFetch = async (page, filteredCookies, connectConfig) => {
     }
 
     if (!downloadPhotos) {
-      await startGalleryFetch(page, filteredCookies, connectConfig);
+      await startGalleryFetch(accountId, filteredCookies, connectConfig);
     }
 
     await browser.close();
@@ -164,7 +166,7 @@ const startGalleryFetch = async (page, filteredCookies, connectConfig) => {
 
     await axios.post(ENDPOINTS.SCRIPT.UPDATE_SCRIPT, {
       filterParams: {
-        userEmail,
+        accountId,
         platform
       },
       updateParams: {
