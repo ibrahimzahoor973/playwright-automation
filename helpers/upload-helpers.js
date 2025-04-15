@@ -4,7 +4,7 @@ import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 
 
 import { PLATFORMS, ENDPOINTS } from '../constants.js';
-import { sleep } from '../helpers/common.js';
+import { retryHandler, sleep } from '../helpers/common.js';
 
 const axiosBase = AxiosBaseUrl();
 
@@ -29,21 +29,23 @@ const UploadGalleryToPassGallery = async ({
   accountId,
   payload
 }) => {
-  const response = await axios({
-    url: `https://productionapi.pic-time.com/apiV2/automation/checkin?pcpClientId=${pcpClientId}&accountId=${accountId}&=`,
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${globalPtToken}`,
-      "Content-Type": 'application/xml'
-    },
-    data: payload
+  return await retryHandler({
+    fn: axios,
+    args: [{
+      url: `https://productionapi.pic-time.com/apiV2/automation/checkin?pcpClientId=${pcpClientId}&accountId=${accountId}&=`,
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${globalPtToken}`,
+        "Content-Type": 'application/xml'
+      },
+      data: payload
+    }],
+    taskName: 'Upload Gallery To Pass Gallery'
   });
-
-  return response;
 }
 
 const CreatePayloadAndUploadGallery = async ({
-  passGalleryId,
+  uploadAccountId,
   guid,
   galleryName,
   externalProjRef,
@@ -84,26 +86,27 @@ const CreatePayloadAndUploadGallery = async ({
   console.log({ payload });
 
   await UploadGalleryToPassGallery({
-    accountId: passGalleryId,
+    accountId: uploadAccountId,
     payload
   });
 
   if (updateGallery) {
-    await axiosBase.post(ENDPOINTS.GALLERY.UPDATE_GALLERY, {
-      filterParams: {
-        collectionId
-      },
-      updateParams: {
-        externalProjRef
-      }
+    await retryHandler({
+      fn: axiosBase.post,
+      args: [ENDPOINTS.GALLERY.UPDATE_GALLERY, {
+        filterParams: { collectionId },
+        updateParams: { externalProjRef }
+      }],
+      taskName: 'Update Gallery Record'
     });
+    
   }
 };
 
 const UploadGallery = async ({
   gallery,
   platform,
-  passGalleryId
+  uploadAccountId
 }) => {
   const {
     collectionId,
@@ -111,7 +114,7 @@ const UploadGallery = async ({
     coverPhotoUrl,
     externalProjRef: galleryRef,
     eventDate = moment().toDate(),
-    name: galleryName
+    galleryName
   } = gallery;
 
   const coverPhoto = platform === PLATFORMS.PIC_TIME ? coverPhotoUrl : galleryCoverPhoto;
@@ -123,7 +126,7 @@ const UploadGallery = async ({
   const subPayload = ``;
 
   await CreatePayloadAndUploadGallery({
-    passGalleryId,
+    uploadAccountId,
     guid,
     galleryName,
     externalProjRef,
@@ -137,71 +140,24 @@ const UploadGallery = async ({
 
 
 const CreateGalleriesInUserAccount = async ({
-  accountId,
-  platform
+  uploadAccountId,
+  platform,
+  galleryCollections
 }) => {
   try {
-    let passGalleryId;
+    if (uploadAccountId) {
+      console.log({ galleryCollections });
 
-    console.log({
-      accountId,
-      platform
-    });
-  
-    const res = await axiosBase.post(ENDPOINTS.ACCOUNT.GET_ACCOUNT, {
-      accountId,
-      platform,
-      uploadScriptAccount: false
-    });
-        
-    const account = res?.data?.account;
-
-    console.log({
-      account
-    });
-
-    if (account) {
-      const { passGalleryAccountId } = account;
-      console.log({
-        passGalleryAccountId
-      })
-      passGalleryId = passGalleryAccountId;
-    }
-
-    if (passGalleryId) {
-      const resGalleries = await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
-        filterParams: {
-          accountId,
-          platform,
-          galleryUploaded: { $exists: false }
-        }
-      });
-
-      console.log({ resGalleries })
-
-      const galleries = resGalleries?.data?.galleries;
-
-      console.log({ galleries });
-
-      for (let i = 0; i < galleries.length; i += 1) {
-        const gallery = galleries[i];
+      for (let i = 0; i < galleryCollections.length; i += 1) {
+        const gallery = galleryCollections[i];
 
         await UploadGallery({
           gallery,
           platform,
-          passGalleryId
+          uploadAccountId
         });
 
-        await axiosBase.post(ENDPOINTS.GALLERY.UPDATE_GALLERY, {
-          filterParams: {
-            _id: gallery._id,
-          },
-          updateParams: {
-            galleryUploaded: true
-          }
-        });
-
-        await sleep(30);
+        await sleep(10);
       }
     }
 

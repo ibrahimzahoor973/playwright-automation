@@ -1,15 +1,17 @@
 import 'dotenv/config';
 
-import { PLATFORMS } from './constants.js';
+import { PLATFORMS, TASK_TYPES } from './constants.js';
 
-const { platform, uploadScript = false } = process.env;
+const { platform, taskType } = process.env;
 
 if (platform === PLATFORMS.PIXIESET) {
-    import('./controllers/pixie-set/index.js')
-    .then(() => {
-        console.log('Pixieset Module Loaded');
-    })
-    .catch(err => {
-        console.error('Error loading the module:', err);
-    });
+    if(taskType === TASK_TYPES.GALLERY) {
+        import('./controllers/pixie-set/gallery.js')
+        .then(() => {
+            console.log('Pixieset Module Loaded');
+        })
+        .catch(err => {
+            console.error('Error loading the pixie-set module:', err);
+        });
+    }
 }

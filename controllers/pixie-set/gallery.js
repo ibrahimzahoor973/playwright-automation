@@ -4,72 +4,30 @@ import pkg from 'lodash';
 
 import { AxiosBaseUrl } from '../../config/axios.js';
 
-import { ENDPOINTS } from '../../constants.js';
+import { ENDPOINTS, PLATFORMS } from '../../constants.js';
 
 const axios = AxiosBaseUrl();
 
-import GetClientsGallery from '../../helpers/pixieset.js';
+import { GetClientsGallery, PerformLogin } from '../../helpers/pixieset.js';
 import {
-  sleep,
-  getCookies,
   parseProxyUrl,
-  sendNotificationOnSlack,
-  pixiesetLoginMethod,
-  navigateWithRetry,
-  navigateWithEvaluate
+  retryHandler,
+  sendNotificationOnSlack
 } from '../../helpers/common.js';
 
 const { extend } = pkg;
 
 const {
-  userEmail,
-  userPassword,
-  userAccountId,
+  accountId,
+  uploadAccountId,
   PROXY_SETTINGS: proxySettings,
-  downloadPhotos,
-  proxy: proxyUrl,
-  scriptPath,
-  platform
+  proxy: proxyUrl
 } = process.env;
 
 console.log({
-  userEmail,
-  userPassword,
-  userAccountId,
+  accountId,
+  uploadAccountId
 });
-
-const performLogin = async (connectConfig, accountId) => {
-  const { browser, page } = await connect(connectConfig);
-  await page.setViewport({ width: 1920, height: 1080 });
-  await navigateWithRetry(page, 'https://accounts.pixieset.com/login');
-  await sleep(10);
-
-  await pixiesetLoginMethod({
-    page,
-    email: userEmail,
-    password: userPassword
-  });
-  await sleep(20);
-
-  await navigateWithEvaluate(page, 'https://galleries.pixieset.com/collections');
-
-  await sleep(10);
-
-  const cookies = await page.cookies();
-  const filteredCookies = getCookies({ cookies });
-
-  await axios.post(ENDPOINTS.ACCOUNT.UPDATE_ACCOUNT, {
-    accountId,
-    platform,
-    authorization: filteredCookies
-  });
-
-  return {
-    browser,
-    page,
-    filteredCookies
-  };
-};
 
 const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
   try {
@@ -84,7 +42,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
         browser: newBrowser,
         page: newPage,
         filteredCookies: newCookies
-      } = await performLogin(connectConfig);
+      } = await PerformLogin(connectConfig);
 
       await GetClientsGallery({
         accountId,
@@ -99,18 +57,24 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
 
 
 (async () => {
-  let browser, page, filteredCookies, accountId;
+  let browser, page, filteredCookies;
   try {
     let account;
     try {
-      const res = await axios.post(ENDPOINTS.ACCOUNT.GET_ACCOUNT, {
-        email: userEmail,
-        platform,
-        uploadScriptAccount: false
+      const res = await retryHandler({
+        fn: axios.post,
+        args: [ENDPOINTS.ACCOUNT.GET_ACCOUNT, {
+          _id: accountId,
+          platform: PLATFORMS.PIXIESET,
+          uploadScriptAccount: false
+        }],
+        retries: 10,
+        taskName: 'Get Account Info'
       });
+      
       account = res.data.account;
     } catch (err) {
-      console.log('No account found in DB, login required');
+      console.log('Account not found or failed to fetch after retries.');
     }
 
     const connectConfig = {
@@ -138,15 +102,13 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
 
     console.log({ account });
 
-    accountId = account?._id;
-
     if (!account?.authorization) {
       console.log('Authorization not found. Starting login process...');
       ({
         browser,
         page,
         filteredCookies
-      } = await performLogin(connectConfig, accountId));
+      } = await PerformLogin(connectConfig, accountId));
     } else {
       filteredCookies = account.authorization;
       const connectResult = await connect(connectConfig);
@@ -154,7 +116,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
       page = connectResult.page;
     }
 
-    if (!downloadPhotos) {
+    if (filteredCookies) {
       await startGalleryFetch(accountId, filteredCookies, connectConfig);
     }
 
@@ -167,7 +129,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
     await axios.post(ENDPOINTS.SCRIPT.UPDATE_SCRIPT, {
       filterParams: {
         accountId,
-        platform
+        platform: PLATFORMS.PIXIESET,
       },
       updateParams: {
         running: false,

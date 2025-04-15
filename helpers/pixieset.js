@@ -1,12 +1,25 @@
 import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
+import { sendMessageToQueue } from '../config/sqs-consumer.js';
 
-import { generateGUID, navigateWithRetry } from '../helpers/common.js';
+import {
+  generateGUID,
+  navigateWithRetry,
+  sleep,
+  getCookies,
+  pixiesetLoginMethod,
+  navigateWithEvaluate,
+  retryHandler
+} from '../helpers/common.js';
 
-import { ENDPOINTS } from '../constants.js';
+import { ENDPOINTS, PLATFORMS } from '../constants.js';
 
 import CreateGalleriesInUserAccount from './upload-helpers.js';
 
-const { platform } = process.env;
+const {
+  userEmail,
+  userPassword,
+  uploadAccountId,
+} = process.env;
 
 const axiosBase = AxiosBaseUrl();
 
@@ -17,15 +30,19 @@ const getGalleryCollections = async ({
 }) => {
   console.log('in getGalleryCollections');
   const galleryCollections = [];
-  for (let i = 0; i < galleries.length; i += 1) {
+  for (let i = 0; i < galleries?.length; i += 1) {
     const collection = galleries[i];
-    const tagResponse = await axios({
-      url: `https://galleries.pixieset.com/api/v1/collections/${collection.id}/edit`,
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json, text/plain, */*',
-        cookie: filteredCookies
-      }
+    const tagResponse = await retryHandler({
+      fn: axios,
+      args: [{
+        url: `https://galleries.pixieset.com/api/v1/collections/${collection.id}/edit`,
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json, text/plain, */*',
+          cookie: filteredCookies
+        }
+      }],
+      taskName: `FETCH_TAGS_${collection.id}`
     });
 
     const guid  = generateGUID();
@@ -50,7 +67,7 @@ const GetGalleries = async ({ filteredCookies, accountId }) => {
     const [latestGallery] = (await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
       filterParams: {
         accountId,
-        platform
+        platform: PLATFORMS.PIXIESET,
       },
       limit: 1,
       sort: { createdAt: -1 }
@@ -66,15 +83,17 @@ const GetGalleries = async ({ filteredCookies, accountId }) => {
     const galleries = [];
     let response;
     try {
-      response = await axios({
-        url: 'https://galleries.pixieset.com/api/v1/dashboard_listings',
-        method: 'GET',
-        headers: {
-          cookie: filteredCookies
-        },
-        params: {
-          page: pageNumber
-        }
+      response = await retryHandler({
+        fn: axios,
+        args: [{
+          url: 'https://galleries.pixieset.com/api/v1/dashboard_listings',
+          method: 'GET',
+          headers: {
+            cookie: filteredCookies
+          },
+          params: { page: pageNumber }
+        }],
+        taskName: 'FETCH_GALLERIES'
       });
     } catch (err) {
       if (err?.response?.status === 401) {
@@ -89,34 +108,73 @@ const GetGalleries = async ({ filteredCookies, accountId }) => {
     const { collections } = galleriesData || {};
 
     let galleryCollections = await getGalleryCollections({ galleries: collections, filteredCookies });
-    await axiosBase.post(ENDPOINTS.GALLERY.SAVE_GALLERY, {
-      galleries: galleryCollections,
-      platform,
-      pageNumber,
-      accountId
+
+    await retryHandler({
+      fn: CreateGalleriesInUserAccount,
+      args: [{
+        uploadAccountId,
+        platform: PLATFORMS.PIXIESET,
+        galleryCollections,
+      }],
+      taskName: 'CREATE_GALLERIES_IN_USER_ACCOUNT'
     });
+
+    const insertedGalleries = await retryHandler({
+      fn: axiosBase.post,
+      args: [ENDPOINTS.GALLERY.SAVE_GALLERY, {
+        galleries: galleryCollections,
+        platform: PLATFORMS.PIXIESET,
+        pageNumber,
+        accountId,
+        galleryUploaded: true
+      }],
+      taskName: 'Save Gallery'
+    });
+
+    let insertedIds = insertedGalleries?.data?.response;
+
+    if (insertedIds?.length) {
+      for (const galleryId of insertedIds) {
+        const message = {
+          galleryId,
+          accountId,
+          uploadAccountId,
+          platform: PLATFORMS.PIXIESET
+        };
+    
+        try {
+          console.log({ message });
+          await retryHandler({
+            fn: sendMessageToQueue,
+            args: [message],
+            taskName: 'Send Message to Queue'
+          });
+        } catch (err) {
+          console.error('Failed to push gallery to queue:', galleryId, err);
+        }
+      }
+    }
 
     galleries.push(...galleryCollections);
 
     console.log({ lastPage, pageNumber });
-  
-    await CreateGalleriesInUserAccount({
-      accountId,
-      platform
-    });
 
     while (lastPage !== pageNumber) {
       pageNumber += 1;
-      const response = await axios({
-        url: 'https://galleries.pixieset.com/api/v1/dashboard_listings?page=1',
-        method: 'GET',
-        headers: {
-          'content-type': 'application/json',
-          cookie: filteredCookies
-        },
-        params: {
-          page: pageNumber
-        }
+      const response = await retryHandler({
+        fn: axios,
+        args: [{
+          url: 'https://galleries.pixieset.com/api/v1/dashboard_listings?page=1',
+          method: 'GET',
+          headers: {
+            'content-type': 'application/json',
+            cookie: filteredCookies
+          },
+          params: {
+            page: pageNumber
+          }
+        }],
+        taskName: 'FETCH_GALLERIES'
       });
 
       const { data } = response?.data || {};
@@ -125,26 +183,60 @@ const GetGalleries = async ({ filteredCookies, accountId }) => {
 
       galleryCollections = await getGalleryCollections({ galleries: collections, filteredCookies });
 
-      await axiosBase.post(ENDPOINTS.GALLERY.SAVE_GALLERY, {
-        galleries: galleryCollections,
-        platform,
-        pageNumber,
-        accountId
+      await retryHandler({
+        fn: CreateGalleriesInUserAccount,
+        args: [{
+          uploadAccountId,
+          platform: PLATFORMS.PIXIESET,
+          galleryCollections,
+        }],
+        taskName: 'CREATE_GALLERIES_IN_USER_ACCOUNT'
       });
 
+      const insertedGalleries = await retryHandler({
+        fn: axiosBase.post,
+        args: [ENDPOINTS.GALLERY.SAVE_GALLERY, {
+          galleries: galleryCollections,
+          platform: PLATFORMS.PIXIESET,
+          pageNumber,
+          accountId,
+          galleryUploaded: true
+        }],
+        taskName: 'Save Gallery'
+      });
+  
+      let insertedIds = insertedGalleries?.data?.response;
+    
+      if (insertedIds?.length) {
+        for (const galleryId of insertedIds) {
+          const message = {
+            galleryId,
+            accountId,
+            uploadAccountId,
+            platform: PLATFORMS.PIXIESET
+          };
+
+          try {
+            console.log({ message });
+            await retryHandler({
+              fn: sendMessageToQueue,
+              args: [message],
+              taskName: 'Send Message to Queue'
+            });
+          } catch (err) {
+            console.error('Failed to push gallery to queue:', galleryId, err);
+          }
+        }
+      }
+  
       galleries.push(...galleryCollections);
-
-      await CreateGalleriesInUserAccount({
-        accountId,
-        platform
-      });
     }
 
     await axiosBase.post(ENDPOINTS.GALLERY.UPDATE_GALLERY, {
       filterParams: {
         accountId,
-        platform,
-        collectionId: galleries[galleries.length - 1]?.collectionId
+        platform: PLATFORMS.PIXIESET,
+        collectionId: galleries[galleries?.length - 1]?.collectionId
       },
       updateParams: {
         allGalleriesSynced: true
@@ -167,18 +259,17 @@ const GetClientsGallery = async ({
     const [gallery] = (await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
       filterParams: {
         accountId,
-        platform,
+        platform: PLATFORMS.PIXIESET,
         allGalleriesSynced: true
       },
       limit: 1
     })).data.galleries || [];
-    if (gallery) {
-      // need next processing
-    } else {
+
+    if (!gallery) {
       collections = await GetGalleries({ filteredCookies, accountId });
     }
 
-    console.log({ collections: collections.length });
+    console.log({ collections: collections?.length });
 
     return true;
   } catch (err) {
@@ -187,4 +278,40 @@ const GetClientsGallery = async ({
   }
 };
 
-export default GetClientsGallery;
+const PerformLogin = async (connectConfig, accountId) => {
+  const { browser, page } = await connect(connectConfig);
+  await page.setViewport({ width: 1920, height: 1080 });
+  await navigateWithRetry(page, 'https://accounts.pixieset.com/login');
+  await sleep(10);
+
+  await pixiesetLoginMethod({
+    page,
+    email: userEmail,
+    password: userPassword
+  });
+  await sleep(20);
+
+  await navigateWithEvaluate(page, 'https://galleries.pixieset.com/collections');
+
+  await sleep(10);
+
+  const cookies = await page.cookies();
+  const filteredCookies = getCookies({ cookies });
+
+  await axios.post(ENDPOINTS.ACCOUNT.UPDATE_ACCOUNT, {
+    accountId,
+    platform: PLATFORMS.PIXIESET,
+    authorization: filteredCookies
+  });
+
+  return {
+    browser,
+    page,
+    filteredCookies
+  };
+};
+
+export {
+  GetClientsGallery,
+  PerformLogin
+};

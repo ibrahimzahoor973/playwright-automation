@@ -394,3 +394,37 @@ export const navigateWithEvaluate = async (page, url, maxRetries = 3, delay = 2)
       }
   }
 }
+
+export const retryHandler = async ({
+  fn,
+  args = [],
+  retries = 10,
+  backoffs = [1, 3, 5],
+  onError = () => {},
+  taskName = ''
+}) => {
+  let attempt = 0;
+
+  while (attempt < retries) {
+    try {
+      return await fn(...args);
+    } catch (err) {
+      attempt++;
+      console.error(`Error on attempt ${attempt}/${retries} for ${taskName}:`, err.message);
+
+      onError(err, attempt);
+
+      if (attempt >= retries) {
+        await sendNotificationOnSlack({
+          task: taskName,
+          errorMessage: err.message || 'Unknown error'
+        });
+        throw err;
+      }
+
+      const backoff = backoffs[attempt - 1] !== undefined ? backoffs[attempt - 1] : backoffs[backoffs.length - 1];
+      console.log(`Retrying ${taskName} in ${backoff} minute(s)...`);
+      await sleep(backoff * 60);
+    }
+  }
+};
