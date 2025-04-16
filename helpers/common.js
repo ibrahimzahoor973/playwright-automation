@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { SLACK_CHANNEL, PASS_MIGRATIONS_CHANNEL } from '../constants.js';
+import { SLACK_CHANNEL, PASS_MIGRATIONS_CHANNEL, PLATFORMS } from '../constants.js';
 
 const { userEmail, platform, NODE_ENV  } = process.env;
 
@@ -409,6 +409,11 @@ export const retryHandler = async ({
     try {
       return await fn(...args);
     } catch (err) {
+      console.log({ err });
+      if (err?.response?.status === 401) throw err;
+
+      if (platform === PLATFORMS.PIC_TIME && err?.response?.status === 403) throw err;
+
       attempt++;
       console.error(`Error on attempt ${attempt}/${retries} for ${taskName}:`, err.message);
 

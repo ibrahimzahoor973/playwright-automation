@@ -1,3 +1,5 @@
+import { connect } from 'puppeteer-real-browser';
+
 import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 import { sendMessageToQueue } from '../config/sqs-consumer.js';
 
@@ -284,11 +286,13 @@ const PerformLogin = async (connectConfig, accountId) => {
   await navigateWithRetry(page, 'https://accounts.pixieset.com/login');
   await sleep(10);
 
-  await pixiesetLoginMethod({
-    page,
-    email: userEmail,
-    password: userPassword
-  });
+  if (page.url().includes('/login')) {
+    await pixiesetLoginMethod({
+      page,
+      email: userEmail,
+      password: userPassword
+    });
+  }
   await sleep(20);
 
   await navigateWithEvaluate(page, 'https://galleries.pixieset.com/collections');
@@ -298,7 +302,7 @@ const PerformLogin = async (connectConfig, accountId) => {
   const cookies = await page.cookies();
   const filteredCookies = getCookies({ cookies });
 
-  await axios.post(ENDPOINTS.ACCOUNT.UPDATE_ACCOUNT, {
+  await axiosBase.post(ENDPOINTS.ACCOUNT.UPDATE_ACCOUNT, {
     accountId,
     platform: PLATFORMS.PIXIESET,
     authorization: filteredCookies

@@ -1,6 +1,4 @@
 import 'dotenv/config';
-import { connect } from 'puppeteer-real-browser';
-import pkg from 'lodash';
 
 import { AxiosBaseUrl } from '../../config/axios.js';
 
@@ -8,14 +6,13 @@ import { ENDPOINTS, PLATFORMS } from '../../constants.js';
 
 const axios = AxiosBaseUrl();
 
-import { GetClientsGallery, PerformLogin } from '../../helpers/pixieset.js';
+import { PerformLogin, SaveClientGalleries } from '../../helpers/pic-time.js';
+
 import {
   parseProxyUrl,
   retryHandler,
   sendNotificationOnSlack
 } from '../../helpers/common.js';
-
-const { extend } = pkg;
 
 const {
   accountId,
@@ -24,28 +21,21 @@ const {
   proxy: proxyUrl
 } = process.env;
 
-console.log({
-  accountId,
-  uploadAccountId
-});
-
-const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
+const startGalleryFetch = async (accountId, baseUrl, filteredCookies, connectConfig, proxyObject) => {
   try {
-    await GetClientsGallery({
-      accountId,
-      filteredCookies
-    });
+    await SaveClientGalleries({ baseUrl, filteredCookies });
   } catch (err) {
     if (err.message === 'UnauthorizedCookies') {
       console.log('Re-authenticating due to cookie expiration...');
-      const {
-        browser: newBrowser,
-        page: newPage,
-        filteredCookies: newCookies
-      } = await PerformLogin(connectConfig, accountId);
 
-      await GetClientsGallery({
-        accountId,
+      const {
+        baseUrl,
+        browser: newBrowser,
+        filteredCookies: newCookies
+      } = await PerformLogin(connectConfig, proxyObject, accountId);
+
+      await SaveClientGalleries({
+        baseUrl,
         filteredCookies: newCookies
       });
       await newBrowser.close();
@@ -55,9 +45,14 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
   }
 };
 
-
 (async () => {
-  let browser, page, filteredCookies;
+
+  console.log({
+    accountId,
+    uploadAccountId
+  });
+
+  let browser, baseUrl, filteredCookies;
   try {
     let account;
     try {
@@ -65,10 +60,9 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
         fn: axios.post,
         args: [ENDPOINTS.ACCOUNT.GET_ACCOUNT, {
           accountId,
-          platform: PLATFORMS.PIXIESET,
+          platform: PLATFORMS.PIC_TIME,
           uploadScriptAccount: false
         }],
-        retries: 10,
         taskName: 'Get Account Info'
       });
       
@@ -77,50 +71,50 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
       console.log('Account not found or failed to fetch after retries.');
     }
 
+    let proxyObject;
+
+    if (proxyUrl) {
+      proxyObject = parseProxyUrl(proxyUrl);
+    }
+
+    console.log({proxyObject})
+
     const connectConfig = {
-      userDataDir: 'F:/puppeteer-data',
-      headless: false,
+      headless: true,
+      ignoreHTTPSErrors: true,
+      defaultViewport: null,
       args: [
+        '--headless=new',
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-web-security',
         '--disable-gpu',
-        '--disable-features=IsolateOrigins,site-per-process'
-      ],
-      customConfig: {},
-      skipTarget: [],
-      fingerprint: true,
-      turnstile: true,
-      connectOption: {}
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--start-maximized',
+        `${proxyObject ? `--proxy-server=${proxyObject.host}:${proxyObject.port}` : ''}`
+      ]
     };
-
-    if (proxyUrl) {
-      const proxyObject = parseProxyUrl(proxyUrl);
-      extend(connectConfig, { proxy: proxyObject });
-      console.log(proxyObject);
-    }
 
     console.log({ account });
 
     if (!account?.authorization) {
       console.log('Authorization not found. Starting login process...');
       ({
+        baseUrl,
         browser,
-        page,
-        filteredCookies
-      } = await PerformLogin(connectConfig, accountId));
+        filteredCookies,
+      } = await PerformLogin(connectConfig, proxyObject, accountId));
     } else {
       filteredCookies = account.authorization;
-      const connectResult = await connect(connectConfig);
-      browser = connectResult.browser;
-      page = connectResult.page;
+      baseUrl = account.baseUrl;
+
+      console.log({ baseUrl });
     }
 
     if (filteredCookies) {
-      await startGalleryFetch(accountId, filteredCookies, connectConfig);
+      await startGalleryFetch(accountId, baseUrl, filteredCookies, connectConfig, proxyObject);
     }
 
-    await browser.close();
     process.exit();
 
   } catch (error) {
@@ -129,7 +123,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
     await axios.post(ENDPOINTS.SCRIPT.UPDATE_SCRIPT, {
       filterParams: {
         accountId,
-        platform: PLATFORMS.PIXIESET,
+        platform: PLATFORMS.PIC_TIME,
       },
       updateParams: {
         running: false,
@@ -138,7 +132,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
     });
 
     await sendNotificationOnSlack({
-      task: 'Pixieset Automation',
+      task: 'Pic-time Automation',
       errorMessage: error?.message || 'Unknown Reason'
     });
     if (browser) await browser.close();

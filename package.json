@@ -22,6 +22,9 @@
     "fs": "^0.0.1-security",
     "lodash": "^4.17.21",
     "moment": "^2.30.1",
+    "puppeteer": "^24.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "puppeteer-real-browser": "^1.4.2"
   }
 }
