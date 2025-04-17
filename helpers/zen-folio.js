@@ -17,10 +17,15 @@ import { ENDPOINTS } from '../constants.js';
 import CreateGalleriesInUserAccount from './upload-helpers.js';
 
 const {
+  PIPELINE_EVENT
+} = process.env;
+
+const {
   accountId,
   uploadAccountId,
   platform
-} = process.env;
+} = PIPELINE_EVENT;
+
 
 const axiosBase = AxiosBaseUrl();
 

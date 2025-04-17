@@ -2,7 +2,11 @@ import axios from 'axios';
 
 import { SLACK_CHANNEL, PASS_MIGRATIONS_CHANNEL, PLATFORMS } from '../constants.js';
 
-const { userEmail, platform, NODE_ENV  } = process.env;
+const { userEmail, NODE_ENV, PIPELINE_EVENT  } = process.env;
+
+const {
+  platform
+} = PIPELINE_EVENT;
 
 export const sleep = (secs = 1) => new Promise((resolve) => {
   setTimeout(resolve, secs * 1000);

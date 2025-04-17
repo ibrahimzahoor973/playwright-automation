@@ -18,12 +18,16 @@ import {
 } from '../../helpers/common.js';
 
 const {
-  accountId,
-  uploadAccountId,
+  PIPELINE_EVENT,
   PROXY_SETTINGS: proxySettings,
   proxy: proxyUrl,
-  platform
 } = process.env;
+
+const {
+  platform,
+  accountId,
+  uploadAccountId,
+} = PIPELINE_EVENT;
 
 console.log({
   accountId,

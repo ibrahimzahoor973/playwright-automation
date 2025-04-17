@@ -18,11 +18,15 @@ import {
 const { extend } = pkg;
 
 const {
-  accountId,
-  uploadAccountId,
+  PIPELINE_EVENT,
   PROXY_SETTINGS: proxySettings,
   proxy: proxyUrl
 } = process.env;
+
+const {
+  accountId,
+  uploadAccountId,
+} = PIPELINE_EVENT;
 
 console.log({
   accountId,

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/pages/pixiset.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prod:login": "aws ecr get-login-password --region us-east-1 --profile pass-gallery | docker login --username AWS --password-stdin 785013874418.dkr.ecr.us-east-1.amazonaws.com",
+    "prod:push": "docker build -t pass-gallery-automation . && docker tag pass-gallery-automation:latest 785013874418.dkr.ecr.us-east-1.amazonaws.com/pass-gallery-automation:pass-gallery-automation  && docker push 785013874418.dkr.ecr.us-east-1.amazonaws.com/pass-gallery-automation:pass-gallery-automation"
   },
   "author": "",
   "license": "ISC",

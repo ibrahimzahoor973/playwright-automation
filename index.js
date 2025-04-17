@@ -2,7 +2,11 @@ import 'dotenv/config';
 
 import { PLATFORMS, TASK_TYPES } from './constants.js';
 
-const { platform, taskType } = process.env;
+const { PIPELINE_EVENT } = process.env;
+const {
+  platform,
+  taskType
+} = PIPELINE_EVENT;
 
 const loadModule = async (modulePath, name) => {
   try {
