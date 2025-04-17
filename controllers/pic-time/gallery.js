@@ -17,7 +17,8 @@ import {
 const {
   PIPELINE_EVENT,
   PROXY_SETTINGS: proxySettings,
-  proxy: proxyUrl
+  proxy: proxyUrl,
+  NODE_ENV
 } = process.env;
 
 const {
@@ -89,7 +90,7 @@ const startGalleryFetch = async (userEmail, userPassword, baseUrl, filteredCooki
     } = account;
 
     const connectConfig = {
-      headless: true,
+      headless: NODE_ENV === 'production' ? true : false,
       ignoreHTTPSErrors: true,
       defaultViewport: null,
       args: [

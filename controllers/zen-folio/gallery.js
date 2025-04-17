@@ -21,6 +21,7 @@ const {
   PIPELINE_EVENT,
   PROXY_SETTINGS: proxySettings,
   proxy: proxyUrl,
+  NODE_ENV
 } = process.env;
 
 const {
@@ -117,7 +118,7 @@ const startGalleryFetch = async (
     console.log({ folderPath });
 
     const connectConfig = {
-      headless: false,
+      headless: NODE_ENV === 'production' ? true : false,
       ignoreHTTPSErrors: true,
       defaultViewport: null,
       args: [

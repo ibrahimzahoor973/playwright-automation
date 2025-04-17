@@ -20,7 +20,8 @@ import {
 const {
   PIPELINE_EVENT,
   PROXY_SETTINGS: proxySettings,
-  proxy: proxyUrl
+  proxy: proxyUrl,
+  NODE_ENV
 } = process.env;
 
 const {
@@ -38,6 +39,7 @@ const startGalleryFetch = async (
   userEmail,
   userPassword,
   page,
+  userAgent,
   browser,
   baseUrl,
   authorizationToken,
@@ -47,6 +49,7 @@ const startGalleryFetch = async (
   try {
     await GetShootProofAlbums({
       page,
+      userAgent,
       baseUrl,
       userEmail,
       authorizationToken
@@ -58,6 +61,7 @@ const startGalleryFetch = async (
       console.log('Re-authenticating due to token expiration...');
       const {
         page: newPage,
+        userAgent: newUserAgent,
         browser: newBrowser,
         baseUrl: newBaseUrl,
         authorizationToken: newAuthorizationToken,
@@ -65,6 +69,7 @@ const startGalleryFetch = async (
 
       await GetShootProofAlbums({
         page: newPage,
+        userAgent: newUserAgent,
         baseUrl: newBaseUrl,
         userEmail,
         authorizationToken: newAuthorizationToken
@@ -78,7 +83,7 @@ const startGalleryFetch = async (
 
 
 (async () => {
-  let browser, page, authorizationToken, baseUrl;
+  let browser, page, userAgent, authorizationToken, baseUrl;
   try {
     let account;
     try {
@@ -119,7 +124,7 @@ const startGalleryFetch = async (
     console.log({ folderPath });
 
     const connectConfig = {
-      headless: false,
+      headless: NODE_ENV === 'production' ? true : false,
       ignoreHTTPSErrors: true,
       defaultViewport: null,
       // userDataDir: folderPath,
@@ -141,6 +146,7 @@ const startGalleryFetch = async (
       console.log('Authorization not found. Starting login process...');
       ({
         page,
+        userAgent,
         browser,
         baseUrl,
         authorizationToken
@@ -148,6 +154,9 @@ const startGalleryFetch = async (
     } else {
       authorizationToken = account.authorization;
       browser = await chrome.launch(connectConfig);
+
+      userAgent = await browser.userAgent();
+
       page = await browser.newPage();
 
       await navigateWithRetry(page, 'https://studio.shootproof.com');
@@ -178,6 +187,7 @@ const startGalleryFetch = async (
         userEmail,
         userPassword,
         page,
+        userAgent,
         browser,
         baseUrl,
         authorizationToken,

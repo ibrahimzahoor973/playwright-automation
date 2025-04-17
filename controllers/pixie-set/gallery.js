@@ -23,7 +23,8 @@ const { extend } = pkg;
 const {
   PIPELINE_EVENT,
   PROXY_SETTINGS: proxySettings,
-  proxy: proxyUrl
+  proxy: proxyUrl,
+  NODE_ENV
 } = process.env;
 
 const {
@@ -82,7 +83,7 @@ const startGalleryFetch = async (userEmail, userPassword, browser, filteredCooki
 
     const connectConfig = {
       userDataDir: null,
-      headless: true,
+      headless: NODE_ENV === 'production' ? true : false,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

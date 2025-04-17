@@ -30,6 +30,7 @@ const axiosBase = AxiosBaseUrl();
 
 
 const GetAndSaveBrand = async ({
+  userAgent,
   authorizationToken,
   userEmail
 }) => {
@@ -42,7 +43,7 @@ const GetAndSaveBrand = async ({
         method: 'GET',
         headers: {
         'content-type': 'application/json, text/plain, */*',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+        'User-Agent': userAgent,
         'authorization': authorizationToken
         }
       }],
@@ -97,6 +98,7 @@ const parseGalleries = ({
 
 const GetGalleries = async ({
   authorizationToken,
+  userAgent,
   brandId,
   page
 }) => {
@@ -109,7 +111,7 @@ const GetGalleries = async ({
         method: 'GET',
         headers: {
           'content-type': 'application/json, text/plain, */*',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+          'User-Agent': userAgent,
           Authorization: authorizationToken
         },
         params: {
@@ -140,13 +142,14 @@ const GetGalleries = async ({
   }
 }
 
-const GetAndSaveGalleries = async ({ authorizationToken, brandId }) => {
+const GetAndSaveGalleries = async ({ authorizationToken, userAgent, brandId }) => {
   let collections = [];
 
   let page = 1;
 
   const { totalPages, items = [] } = await GetGalleries({
     authorizationToken,
+    userAgent,
     brandId,
     page
   });
@@ -315,6 +318,7 @@ const aggregatePhotos = (album) => {
 
 const GetShootProofAlbums = async ({
   page,
+  userAgent,
   baseUrl,
   userEmail,
   authorizationToken
@@ -344,8 +348,8 @@ const GetShootProofAlbums = async ({
     if (!brandId) {
       const brandIdentifier = await GetAndSaveBrand({
         authorizationToken,
-        userEmail,
-        platform:PLATFORMS.SHOOTPROOF
+        userAgent,
+        userEmail
       });
       console.log({
         brandIdentifier
@@ -369,7 +373,7 @@ const GetShootProofAlbums = async ({
       });
 
       if (!gallery) {
-        await GetAndSaveGalleries({ authorizationToken, brandId });
+        await GetAndSaveGalleries({ authorizationToken, userAgent, brandId });
       }
     }
 
@@ -383,6 +387,8 @@ const GetShootProofAlbums = async ({
 const PerformLogin = async (userEmail, userPassword, connectConfig, proxyObject) => {
   const browser = await chrome.launch(connectConfig);
   const page = await browser.newPage();
+
+  const userAgent = await browser.userAgent();
   
   if (proxyObject) {
     await page.authenticate({ username: proxyObject.username, password: proxyObject.password }); 
@@ -441,7 +447,7 @@ const PerformLogin = async (userEmail, userPassword, connectConfig, proxyObject)
     authorization: authorizationToken
   });
 
-  return { page, baseUrl, browser, authorizationToken };
+  return { page, userAgent, baseUrl, browser, authorizationToken };
 };
 
 export {
