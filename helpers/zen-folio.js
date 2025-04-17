@@ -21,6 +21,7 @@ const {
 } = process.env;
 
 const {
+  taskType,
   accountId,
   uploadAccountId,
   platform
@@ -149,6 +150,7 @@ const GetAndSaveGalleries = async ({ authorizationToken }) => {
     if (insertedIds?.length) {
       for (const galleryId of insertedIds) {
         const message = {
+          taskType,
           galleryId,
           accountId,
           uploadAccountId,
@@ -204,6 +206,7 @@ const GetAndSaveGalleries = async ({ authorizationToken }) => {
       if (insertedIds?.length) {
         for (const galleryId of insertedIds) {
           const message = {
+            taskType,
             galleryId,
             accountId,
             uploadAccountId,

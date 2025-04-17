@@ -1,4 +1,7 @@
-import { connect } from 'puppeteer-real-browser';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+puppeteer.use(StealthPlugin());
 
 import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 import { sendMessageToQueue } from '../config/sqs-consumer.js';
@@ -22,6 +25,7 @@ const {
 } = process.env;
 
 const {
+  taskType,
   accountId,
   uploadAccountId,
 } = JSON.parse(PIPELINE_EVENT)
@@ -139,6 +143,7 @@ const GetGalleries = async ({ filteredCookies }) => {
     if (insertedIds?.length) {
       for (const galleryId of insertedIds) {
         const message = {
+          taskType,
           galleryId,
           accountId,
           uploadAccountId,
@@ -213,6 +218,7 @@ const GetGalleries = async ({ filteredCookies }) => {
       if (insertedIds?.length) {
         for (const galleryId of insertedIds) {
           const message = {
+            taskType,
             galleryId,
             accountId,
             uploadAccountId,
@@ -281,7 +287,8 @@ const GetClientsGallery = async ({
 };
 
 const PerformLogin = async (userEmail, userPassword, connectConfig) => {
-  const { browser, page } = await connect(connectConfig);
+  const browser = await puppeteer.launch(connectConfig);
+  const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080 });
   await navigateWithRetry(page, 'https://accounts.pixieset.com/login');
   await sleep(10);

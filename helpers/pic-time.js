@@ -23,6 +23,7 @@ const {
 } = process.env;
 
 const {
+  taskType,
   accountId,
   uploadAccountId,
 } = JSON.parse(PIPELINE_EVENT)
@@ -171,6 +172,7 @@ export const GetGalleries = async ({
     if (insertedIds?.length) {
       for (const galleryId of insertedIds) {
         const message = {
+          taskType,
           galleryId,
           accountId,
           uploadAccountId,

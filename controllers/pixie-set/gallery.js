@@ -1,6 +1,9 @@
 import 'dotenv/config';
-import { connect } from 'puppeteer-real-browser';
 import pkg from 'lodash';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+puppeteer.use(StealthPlugin());
 
 import { AxiosBaseUrl } from '../../config/axios.js';
 
@@ -116,9 +119,8 @@ const startGalleryFetch = async (userEmail, userPassword, browser, filteredCooki
       } = await PerformLogin(userEmail, userPassword, connectConfig));
     } else {
       filteredCookies = account.authorization;
-      const connectResult = await connect(connectConfig);
-      browser = connectResult.browser;
-      page = connectResult.page;
+      browser = await puppeteer.launch(connectConfig);
+      page = await browser.newPage();
     }
 
     if (filteredCookies) {

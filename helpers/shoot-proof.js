@@ -21,6 +21,7 @@ const {
 } = process.env;
 
 const {
+  taskType,
   accountId,
   uploadAccountId,
 } = JSON.parse(PIPELINE_EVENT)
@@ -187,6 +188,7 @@ const GetAndSaveGalleries = async ({ authorizationToken, brandId }) => {
     if (insertedIds?.length) {
       for (const galleryId of insertedIds) {
         const message = {
+          taskType,
           galleryId,
           accountId,
           uploadAccountId,
@@ -247,6 +249,7 @@ const GetAndSaveGalleries = async ({ authorizationToken, brandId }) => {
       if (insertedIds?.length) {
         for (const galleryId of insertedIds) {
           const message = {
+            taskType,
             galleryId,
             accountId,
             uploadAccountId,
