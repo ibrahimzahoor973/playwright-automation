@@ -22,8 +22,7 @@ const {
   uploadAccountId,
   PROXY_SETTINGS: proxySettings,
   proxy: proxyUrl,
-  platform,
-  userEmail
+  platform
 } = process.env;
 
 console.log({
@@ -31,7 +30,16 @@ console.log({
   uploadAccountId
 });
 
-const startGalleryFetch = async (page, browser, baseUrl, authorizationToken, connectConfig, proxyObject) => {
+const startGalleryFetch = async (
+  userEmail,
+  userPassword,
+  page,
+  browser,
+  baseUrl,
+  authorizationToken,
+  connectConfig,
+  proxyObject
+) => {
   try {
     await GetZenFolioAlbums({
       page,
@@ -48,7 +56,7 @@ const startGalleryFetch = async (page, browser, baseUrl, authorizationToken, con
         browser: newBrowser,
         baseUrl: newBaseUrl,
         authorizationToken: newAuthorizationToken,
-      } = await PerformLogin(connectConfig, proxyObject);
+      } = await PerformLogin(userEmail, userPassword, connectConfig, proxyObject);
 
       await GetZenFolioAlbums({
         page: newPage,
@@ -91,6 +99,11 @@ const startGalleryFetch = async (page, browser, baseUrl, authorizationToken, con
 
     console.log({proxyObject})
 
+    let {
+      email: userEmail,
+      password: userPassword
+    } = account;
+
     const rootDirectory = process.cwd();
     const folderPath = `${rootDirectory}/public/sessions/${platform}/${userEmail}`;
     // const folderPath = `${os.homedir()}/Desktop/playwright-automation/public/${userEmail}`;
@@ -123,7 +136,7 @@ const startGalleryFetch = async (page, browser, baseUrl, authorizationToken, con
         browser,
         baseUrl,
         authorizationToken,
-      } = await PerformLogin(connectConfig, proxyObject));
+      } = await PerformLogin(userEmail, userPassword, connectConfig, proxyObject));
     } else {
       authorizationToken = account.authorization;
       browser = await chrome.launch(connectConfig);
@@ -142,7 +155,16 @@ const startGalleryFetch = async (page, browser, baseUrl, authorizationToken, con
     }
 
     if (authorizationToken) {
-      await startGalleryFetch(page, browser, baseUrl, authorizationToken, connectConfig, proxyObject);
+      await startGalleryFetch(
+        userEmail,
+        userPassword,
+        page,
+        browser,
+        baseUrl,
+        authorizationToken,
+        connectConfig,
+        proxyObject
+      );
     }
 
     await browser.close();
@@ -162,10 +184,10 @@ const startGalleryFetch = async (page, browser, baseUrl, authorizationToken, con
       }
     });
 
-    // await sendNotificationOnSlack({
-    //   task: 'ZenFolio Automation',
-    //   errorMessage: error?.message || 'Unknown Reason'
-    // });
+    await sendNotificationOnSlack({
+      task: 'ZenFolio Automation',
+      errorMessage: error?.message || 'Unknown Reason'
+    });
     if (browser) await browser.close();
   }
 })();

@@ -1,7 +1,6 @@
 import 'dotenv/config';
 
 import { PLATFORMS, TASK_TYPES } from './constants.js';
-import { sendMessageToQueue } from './config/sqs-consumer.js';
 
 const { platform, taskType } = process.env;
 
@@ -33,9 +32,3 @@ if (platform === PLATFORMS.PIXIESET) {
 } else {
   console.error('Invalid platform or task type');
 }
-
-// await sendMessageToQueue({
-//     galleryId: '12345',
-//     accountId: 'acc123',
-//     platform: 'pixieset'
-// });

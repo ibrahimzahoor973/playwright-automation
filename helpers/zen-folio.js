@@ -17,8 +17,6 @@ import { ENDPOINTS } from '../constants.js';
 import CreateGalleriesInUserAccount from './upload-helpers.js';
 
 const {
-  userEmail,
-  userPassword,
   accountId,
   uploadAccountId,
   platform
@@ -277,7 +275,7 @@ const GetZenFolioAlbums = async ({
   }
 };
 
-const PerformLogin = async (connectConfig, proxyObject) => {
+const PerformLogin = async (userEmail, userPassword, connectConfig, proxyObject) => {
   const browser = await chrome.launch(connectConfig);
   const page = await browser.newPage();
   

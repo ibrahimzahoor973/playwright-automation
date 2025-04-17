@@ -95,6 +95,8 @@ export const loginMethod = async ({
 
     console.log({ emailSelector });
   
+    await sleep(10);
+
     await emailSelector.click();
     await emailSelector.click({ clickCount: 3 });
     await emailSelector.press('Backspace');

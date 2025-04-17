@@ -18,8 +18,7 @@ import { ENDPOINTS, PLATFORMS } from '../constants.js';
 import CreateGalleriesInUserAccount from './upload-helpers.js';
 
 const {
-  userEmail,
-  userPassword,
+  accountId,
   uploadAccountId,
 } = process.env;
 
@@ -62,10 +61,8 @@ const getGalleryCollections = async ({
   return galleryCollections;
 }
 
-const GetGalleries = async ({ filteredCookies, accountId }) => {
-  try {
-    console.log({ accountId });
-  
+const GetGalleries = async ({ filteredCookies }) => {
+  try {  
     const [latestGallery] = (await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
       filterParams: {
         accountId,
@@ -253,7 +250,6 @@ const GetGalleries = async ({ filteredCookies, accountId }) => {
 };
 
 const GetClientsGallery = async ({
-  accountId,
   filteredCookies
 }) => {
   try {
@@ -268,7 +264,7 @@ const GetClientsGallery = async ({
     })).data.galleries || [];
 
     if (!gallery) {
-      collections = await GetGalleries({ filteredCookies, accountId });
+      collections = await GetGalleries({ filteredCookies });
     }
 
     console.log({ collections: collections?.length });
@@ -280,7 +276,7 @@ const GetClientsGallery = async ({
   }
 };
 
-const PerformLogin = async (connectConfig, accountId) => {
+const PerformLogin = async (userEmail, userPassword, connectConfig) => {
   const { browser, page } = await connect(connectConfig);
   await page.setViewport({ width: 1920, height: 1080 });
   await navigateWithRetry(page, 'https://accounts.pixieset.com/login');

@@ -21,7 +21,7 @@ const {
   proxy: proxyUrl
 } = process.env;
 
-const startGalleryFetch = async (accountId, baseUrl, filteredCookies, connectConfig, proxyObject) => {
+const startGalleryFetch = async (userEmail, userPassword, baseUrl, filteredCookies, connectConfig, proxyObject) => {
   try {
     await SaveClientGalleries({ baseUrl, filteredCookies });
   } catch (err) {
@@ -32,7 +32,7 @@ const startGalleryFetch = async (accountId, baseUrl, filteredCookies, connectCon
         baseUrl,
         browser: newBrowser,
         filteredCookies: newCookies
-      } = await PerformLogin(connectConfig, proxyObject, accountId);
+      } = await PerformLogin(userEmail, userPassword, connectConfig, proxyObject);
 
       await SaveClientGalleries({
         baseUrl,
@@ -79,6 +79,11 @@ const startGalleryFetch = async (accountId, baseUrl, filteredCookies, connectCon
 
     console.log({proxyObject})
 
+    let {
+      email: userEmail,
+      password: userPassword
+    } = account;
+
     const connectConfig = {
       headless: true,
       ignoreHTTPSErrors: true,
@@ -103,7 +108,7 @@ const startGalleryFetch = async (accountId, baseUrl, filteredCookies, connectCon
         baseUrl,
         browser,
         filteredCookies,
-      } = await PerformLogin(connectConfig, proxyObject, accountId));
+      } = await PerformLogin(userEmail, userPassword, connectConfig, proxyObject, accountId));
     } else {
       filteredCookies = account.authorization;
       baseUrl = account.baseUrl;
@@ -112,7 +117,7 @@ const startGalleryFetch = async (accountId, baseUrl, filteredCookies, connectCon
     }
 
     if (filteredCookies) {
-      await startGalleryFetch(accountId, baseUrl, filteredCookies, connectConfig, proxyObject);
+      await startGalleryFetch(userEmail, userPassword, baseUrl, filteredCookies, connectConfig, proxyObject);
     }
 
     process.exit();

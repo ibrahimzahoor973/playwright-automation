@@ -29,25 +29,21 @@ console.log({
   uploadAccountId
 });
 
-const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
+const startGalleryFetch = async (userEmail, userPassword, browser, filteredCookies, connectConfig) => {
   try {
-    await GetClientsGallery({
-      accountId,
-      filteredCookies
-    });
+    await GetClientsGallery({ filteredCookies });
   } catch (err) {
+    await browser.close();
+
     if (err.message === 'UnauthorizedCookies') {
       console.log('Re-authenticating due to cookie expiration...');
       const {
         browser: newBrowser,
         page: newPage,
         filteredCookies: newCookies
-      } = await PerformLogin(connectConfig, accountId);
+      } = await PerformLogin(userEmail, userPassword, connectConfig);
 
-      await GetClientsGallery({
-        accountId,
-        filteredCookies: newCookies
-      });
+      await GetClientsGallery({ filteredCookies: newCookies });
       await newBrowser.close();
     } else {
       throw err;
@@ -99,8 +95,13 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
       extend(connectConfig, { proxy: proxyObject });
       console.log(proxyObject);
     }
-
+  
     console.log({ account });
+
+    let {
+      email: userEmail,
+      password: userPassword
+    } = account;
 
     if (!account?.authorization) {
       console.log('Authorization not found. Starting login process...');
@@ -108,7 +109,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
         browser,
         page,
         filteredCookies
-      } = await PerformLogin(connectConfig, accountId));
+      } = await PerformLogin(userEmail, userPassword, connectConfig));
     } else {
       filteredCookies = account.authorization;
       const connectResult = await connect(connectConfig);
@@ -117,7 +118,7 @@ const startGalleryFetch = async (accountId, filteredCookies, connectConfig) => {
     }
 
     if (filteredCookies) {
-      await startGalleryFetch(accountId, filteredCookies, connectConfig);
+      await startGalleryFetch(userEmail, userPassword, browser, filteredCookies, connectConfig);
     }
 
     await browser.close();

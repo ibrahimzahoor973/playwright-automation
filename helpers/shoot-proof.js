@@ -17,8 +17,6 @@ import { ENDPOINTS, PLATFORMS } from '../constants.js';
 import CreateGalleriesInUserAccount from './upload-helpers.js';
 
 const {
-  userEmail,
-  userPassword,
   accountId,
   uploadAccountId,
 } = process.env;
@@ -137,7 +135,7 @@ const GetGalleries = async ({
   }
 }
 
-const GetAndSaveGalleries = async ({ authorizationToken, userEmail, brandId }) => {
+const GetAndSaveGalleries = async ({ authorizationToken, brandId }) => {
   let collections = [];
 
   let page = 1;
@@ -311,6 +309,7 @@ const aggregatePhotos = (album) => {
 const GetShootProofAlbums = async ({
   page,
   baseUrl,
+  userEmail,
   authorizationToken
 }) => {
   try {
@@ -363,7 +362,7 @@ const GetShootProofAlbums = async ({
       });
 
       if (!gallery) {
-        await GetAndSaveGalleries({ authorizationToken, userEmail, brandId });
+        await GetAndSaveGalleries({ authorizationToken, brandId });
       }
     }
 
@@ -374,7 +373,7 @@ const GetShootProofAlbums = async ({
   }
 };
 
-const PerformLogin = async (connectConfig, proxyObject) => {
+const PerformLogin = async (userEmail, userPassword, connectConfig, proxyObject) => {
   const browser = await chrome.launch(connectConfig);
   const page = await browser.newPage();
   

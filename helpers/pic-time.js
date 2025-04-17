@@ -1,7 +1,6 @@
 import chrome from 'puppeteer-extra';
 import moment from 'moment';
 
-
 import { axiosInstance as axios, AxiosBaseUrl } from '../config/axios.js';
 
 import { sendMessageToQueue } from '../config/sqs-consumer.js';
@@ -20,8 +19,6 @@ import { ENDPOINTS, PLATFORMS } from '../constants.js';
 import CreateGalleriesInUserAccount from './upload-helpers.js';
 
 const {
-  userEmail,
-  userPassword,
   accountId,
   uploadAccountId,
 } = process.env;
@@ -441,6 +438,7 @@ const createShareLink = async ({
 
 const HandleOldGalleries = async ({
   baseUrl,
+  userEmail,
   filteredCookies
 }) => {
   const galleries = (await axiosBase.post(ENDPOINTS.GALLERY.GET_GALLERIES, {
@@ -532,7 +530,7 @@ const HandleOldGalleries = async ({
   }
 };
 
-const PerformLogin = async (connectConfig, proxyObject, accountId) => {
+const PerformLogin = async (userEmail, userPassword, connectConfig, proxyObject) => {
   const browser = await chrome.launch(connectConfig);
   const page = await browser.newPage();
   
