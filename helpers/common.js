@@ -6,7 +6,7 @@ const { userEmail, NODE_ENV, PIPELINE_EVENT  } = process.env;
 
 const {
   platform
-} = PIPELINE_EVENT;
+} = JSON.parse(PIPELINE_EVENT)
 
 export const sleep = (secs = 1) => new Promise((resolve) => {
   setTimeout(resolve, secs * 1000);

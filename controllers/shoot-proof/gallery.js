@@ -27,7 +27,7 @@ const {
   platform,
   accountId,
   uploadAccountId,
-} = PIPELINE_EVENT;
+} = JSON.parse(PIPELINE_EVENT)
 
 console.log({
   accountId,

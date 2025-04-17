@@ -26,7 +26,7 @@ const {
 const {
   accountId,
   uploadAccountId,
-} = PIPELINE_EVENT;
+} = JSON.parse(PIPELINE_EVENT)
 
 console.log({
   accountId,
@@ -78,8 +78,8 @@ const startGalleryFetch = async (userEmail, userPassword, browser, filteredCooki
     }
 
     const connectConfig = {
-      userDataDir: 'F:/puppeteer-data',
-      headless: false,
+      userDataDir: null,
+      headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

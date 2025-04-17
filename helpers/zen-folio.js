@@ -24,7 +24,7 @@ const {
   accountId,
   uploadAccountId,
   platform
-} = PIPELINE_EVENT;
+} = JSON.parse(PIPELINE_EVENT)
 
 
 const axiosBase = AxiosBaseUrl();
